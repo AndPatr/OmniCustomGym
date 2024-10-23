@@ -525,11 +525,10 @@ class IsaacSimEnv(LRhcEnvBase):
             
             # init contact sensors
             self._init_contact_sensors() # IMPORTANT: this has to be called
-            # after calling the clone() method and initializing articulation views!!!
-            for i in range(self._n_init_steps): # run some initialization steps
-                self._step_sim()
+            # after calling the clone() method and initializing articulation views!!
 
             self._reset_sim()
+
             self._fill_robot_info_from_world() 
             # initializes robot state data
             
