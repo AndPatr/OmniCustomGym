@@ -245,19 +245,10 @@ class IsaacSimEnv(LRhcEnvBase):
         isaac_opts["spawning_height"]=0.8
         isaac_opts["spawning_radius"]=1.0
         isaac_opts["use_flat_ground"]=True
-        isaac_opts["contact_prims"] = {}
-        isaac_opts["sensor_radii"] = {}
+        isaac_opts["contact_prims"] = []
+        isaac_opts["sensor_radii"] = 0.1
         isaac_opts["contact_offsets"] = {}
-        isaac_opts["contact_radius"]=0.1
-        for i in range(len(self._robot_names)):
-            robot_name=self._robot_names[i]
-            isaac_opts["contact_prims"][robot_name]=self._contacts(robot_name=robot_name)
-            isaac_opts["sensor_radii"][robot_name]={}
-            isaac_opts["contact_offsets"][robot_name]={}
-            if isaac_opts["contact_prims"][robot_name] is not None:
-                for contact in isaac_opts["contact_prims"][robot_name]:
-                    isaac_opts["sensor_radii"][robot_name][contact]=isaac_opts["contact_radius"]
-                    isaac_opts["contact_offsets"][robot_name][contact]=np.array([0.0, 0.0, 0.0])
+        
         isaac_opts["enable_livestream"] = False
         isaac_opts["enable_viewport"] = False
         isaac_opts["use_diff_vels"] = False
@@ -437,22 +428,6 @@ class IsaacSimEnv(LRhcEnvBase):
         #     self._render = sim_params["enable_viewport"]
 
     def _configure_scene(self):
-
-        for robot_name in self._robot_names:
-            self.omni_contact_sensors[robot_name]=None
-        self._contact_prims=self._env_opts["contact_prims"]
-        for robot_name in self._contact_prims:
-            contact_names=self._contact_prims[robot_name]
-            if not (contact_names is None):
-                self.omni_contact_sensors[robot_name]=OmniContactSensors(
-                    name=robot_name, 
-                    n_envs=self._num_envs, 
-                    contact_prims=self._contact_prims, 
-                    contact_offsets=self._env_opts["contact_offsets"], 
-                    sensor_radii=self._env_opts["sensor_radii"], 
-                    device=self._device, 
-                    dtype=self._dtype,
-                    enable_debug=self._debug)
             
         # environment 
         self._fix_base = [self._env_opts["is_fixed_base"]] * len(self._robot_names)
@@ -461,11 +436,13 @@ class IsaacSimEnv(LRhcEnvBase):
             
         for i in range(len(self._robot_names)):
             robot_name = self._robot_names[i]
+                
             urdf_path = self._robot_urdf_paths[robot_name]
             srdf_path = self._robot_srdf_paths[robot_name]
             fix_base = self._fix_base[i]
             self_collide = self._self_collide[i]
             merge_fixed = self._merge_fixed[i]
+            
             self._generate_rob_descriptions(robot_name=robot_name, 
                                     urdf_path=urdf_path,
                                     srdf_path=srdf_path)
@@ -524,7 +501,7 @@ class IsaacSimEnv(LRhcEnvBase):
                                 "/World/collisions")
             
             # init contact sensors
-            self._init_contact_sensors() # IMPORTANT: this has to be called
+            self._init_contact_sensors(robot_name=robot_name) # IMPORTANT: this has to be called
             # after calling the clone() method and initializing articulation views!!
 
             self._reset_sim()
@@ -920,7 +897,18 @@ class IsaacSimEnv(LRhcEnvBase):
             
             self._jnts_eff[robot_name][env_indxs, :] = self._robots_art_views[robot_name].get_measured_joint_efforts( 
                                             clone = True) # measured joint efforts (computed by joint force solver)
-                
+
+    def _get_contact_f(self, 
+        robot_name: str, 
+        contact_link: str,
+        env_indxs: torch.Tensor) -> torch.Tensor:
+        
+        if self.omni_contact_sensors[robot_name] is not None:
+            return self.omni_contact_sensors[robot_name].get(dt=self.physics_dt(),
+                            contact_link=contact_link,
+                            env_indxs=env_indxs,
+                            clone=False)
+    
     def _set_jnts_homing(self, robot_name: str):
         self._robots_art_views[robot_name].set_joints_default_state(positions=self._homing, 
             velocities = torch.zeros((self._homing.shape[0], self._homing.shape[1]), \
@@ -997,14 +985,27 @@ class IsaacSimEnv(LRhcEnvBase):
                         target=camera_target, 
                         camera_prim_path="/OmniverseKit_Persp")
     
-    def _init_contact_sensors(self):
-        for i in range(0, len(self._robot_names)):
-            robot_name = self._robot_names[i]
-            # creates base contact sensor (which is then cloned)
-            if self.omni_contact_sensors[robot_name] is not None:
-                self.omni_contact_sensors[robot_name].create_contact_sensors(
-                                                        self._world,
-                                                        envs_namespace=self._env_opts["envs_ns"])
+    def _init_contact_sensors(self, robot_name: str):
+        self.omni_contact_sensors[robot_name]=None
+        sensor_radii={}
+        contact_offsets={}
+        self._contact_names[robot_name]=self._env_opts["contact_prims"]
+        for contact_prim in self._env_opts["contact_prims"]:
+            sensor_radii[contact_prim]=self._env_opts["sensor_radii"]
+            contact_offsets[contact_prim]=np.array([0.0, 0.0, 0.0])
+        if not (len(self._env_opts["contact_prims"])==0):
+            self.omni_contact_sensors[robot_name]=OmniContactSensors(
+                name=robot_name, 
+                n_envs=self._num_envs, 
+                contact_prims=self._env_opts["contact_prims"], 
+                contact_offsets=contact_offsets, 
+                sensor_radii=sensor_radii, 
+                device=self._device, 
+                dtype=self._dtype,
+                enable_debug=self._debug)
+            self.omni_contact_sensors[robot_name].create_contact_sensors(
+                self._world,
+                envs_namespace=self._env_opts["envs_ns"])            
     
     def _init_robots_state(self):
 

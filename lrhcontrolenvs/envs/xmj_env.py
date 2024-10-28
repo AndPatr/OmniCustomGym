@@ -436,6 +436,12 @@ class XMjSimEnv(LRhcEnvBase):
     def _init_contact_sensors(self):
         raise NotImplementedError()
 
+    def _get_contact_f(self, 
+        robot_name: str, 
+        contact_link: str,
+        env_indxs: torch.Tensor) -> torch.Tensor:
+        raise NotImplementedError()
+    
     def _init_robots_state(self):
 
         for i in range(0, len(self._robot_names)):

@@ -43,13 +43,12 @@ class OmniContactSensors:
 
         self.name = name
 
-        self.contact_radius_default = 0.003
+        self.contact_radius_default = 0.01
         
         # parses contact dictionaries and checks for issues
-        self._parse_contact_dicts(self.name, 
-                            contact_prims, 
-                            contact_offsets, 
-                            sensor_radii)
+        self._parse_contact_dicts(contact_prims, 
+            contact_offsets, 
+            sensor_radii)
 
         self.n_sensors = len(self.contact_prims)
 
@@ -68,55 +67,34 @@ class OmniContactSensors:
                     device = self.device, 
                     dtype=torch.int)
 
-        self.contact_sensors = [[None] * self.n_sensors] * n_envs # outer: environment, 
+        # self.contact_sensors = [[None] * self.n_sensors] * n_envs # outer: environment, 
         # inner: contact sensor, ordered as in contact_prims
 
         self.contact_geom_prim_views = [None] * self.n_sensors
         # self.contact_views = [None] * self.n_sensors
     
     def _parse_contact_dicts(self, 
-                            name: str,
-                            contact_prims: Dict[str, List],
-                            contact_offsets: Dict[str, Dict[str, np.ndarray]],
-                            sensor_radii: Dict[str, Dict[str, np.ndarray]]):
-    
-        try:
-            self.contact_prims = contact_prims[name]
-        except:
-            Journal.log(self.__class__.__name__,
-                "_parse_contact_dicts",
-                f"Could not find key {name} in contact_prims dictionary.",
-                LogType.EXCEP,
-                throw_when_excep = True)                        
-        try:
-            self.contact_offsets = contact_offsets[name]
-        except:
-            Journal.log(self.__class__.__name__,
-                "_parse_contact_dicts",
-                f"Could not find key {name} in contact_offsets dictionary.",
-                LogType.EXCEP,
-                throw_when_excep = True)        
-        try:
-            self.sensor_radii = sensor_radii[name]
-        except:
-            Journal.log(self.__class__.__name__,
-                "_parse_contact_dicts",
-                f"Could not find key {name} in sensor_radii dictionary.",
-                LogType.EXCEP,
-                throw_when_excep = True)
+            contact_prims: List[str],
+            contact_offsets: Dict[str, np.ndarray],
+            sensor_radii: Dict[str, np.ndarray]):
+        
+        self.contact_prims=contact_prims
+        self.contact_offsets=contact_offsets
+        self.sensor_radii=sensor_radii
                     
-        contact_offsets_ok = all(item in self.contact_offsets for item in self.contact_prims)
-        sensor_radii_ok = all(item in self.sensor_radii for item in self.contact_prims)
+        contact_offsets_ok = all(contact in self.contact_offsets for contact in self.contact_prims)
+        sensor_radii_ok = all(contact in self.sensor_radii for contact in self.contact_prims)
 
         if not contact_offsets_ok:
             warning = f"Provided contact_offsets dictionary does not posses all the necessary keys. " + \
-                f"It should contain all of [{' '.join(self.contact_prims)}]. \n" + \
+                f"It should contain all of [{', '.join(self.contact_prims)}]. \n" + \
                 f"Resetting all offsets to zero..."
             Journal.log(self.__class__.__name__,
                 "_parse_contact_dicts",
                 warning,
                 LogType.WARN,
                 throw_when_excep = True)
+            self.contact_offsets={}
             for i in range(0, len(self.contact_prims)):
                 self.contact_offsets[self.contact_prims[i]] = np.array([0.0, 0.0, 0.0])
 
@@ -129,6 +107,7 @@ class OmniContactSensors:
                 warning,
                 LogType.WARN,
                 throw_when_excep = True)
+            self.sensor_radii={}
             for i in range(0, len(self.contact_prims)):
                 self.sensor_radii[self.contact_prims[i]] = self.contact_radius_default
 
@@ -141,10 +120,11 @@ class OmniContactSensors:
 
         for sensor_idx in range(0, self.n_sensors): 
             # we create views of the contact links for all envs
-            if self.contact_geom_prim_views[sensor_idx] is None:                             
-                self.contact_geom_prim_views[sensor_idx] = RigidPrimView(prim_paths_expr=envs_namespace + "/env_.*/" + robot_name + \
-                                                            "/" + contact_link_names[sensor_idx],
-                                                    name= self.name + "RigidPrimView" + contact_link_names[sensor_idx], 
+            if self.contact_geom_prim_views[sensor_idx] is None:        
+                prim_view_regex_path=prim_paths_expr=envs_namespace + "/env_.*/" + robot_name + \
+                    "/" + contact_link_names[sensor_idx]                     
+                self.contact_geom_prim_views[sensor_idx] = RigidPrimView(prim_paths_expr=prim_view_regex_path,
+                                                    name=self.name+"ContactRigidPrimView"+contact_link_names[sensor_idx], 
                                                     contact_filter_prim_paths_expr= self._filter_paths,
                                                     prepare_contact_sensors=True, 
                                                     track_contact_forces = True,
@@ -195,8 +175,8 @@ class OmniContactSensors:
         try:
             index = self.contact_prims.index(contact_link)
         except:
-            exception = f"[{self.__class__.__name__}]" + f"[{self.journal.exception}]" + \
-                f"could not find contact link {contact_link} in contact list {' '.join(self.contact_prims)}." 
+            exception = f"could not find contact link {contact_link} " + \
+                f"in contact list {' '.join(self.contact_prims)}." 
             Journal.log(self.__class__.__name__,
                 "get",
                 exception,
