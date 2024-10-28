@@ -537,6 +537,9 @@ class IsaacSimEnv(LRhcEnvBase):
             self._get_solver_info() # get again solver option before printing everything
             self._print_envs_info() # debug print
 
+            # for n in range(self._n_init_steps): # run some initialization steps
+            #     self._step_sim()
+
             self._init_robots_state()
 
             self.scene_setup_completed = True
@@ -693,7 +696,7 @@ class IsaacSimEnv(LRhcEnvBase):
         else:
 
             if randomize:
-                self.randomize_yaw(robot_name=robot_name,env_indxs=None)
+                self._randomize_yaw(robot_name=robot_name,env_indxs=None)
 
             # root q
             self._robots_art_views[robot_name].set_world_poses(positions = self._root_p_default[robot_name][:, :],
