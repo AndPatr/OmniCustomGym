@@ -130,7 +130,7 @@ class OmniContactSensors:
                                                     track_contact_forces = True,
                                                     disable_stablization = False, 
                                                     reset_xform_properties=False,
-                                                    max_contact_count = self.n_envs
+                                                    max_contact_count = 10*self.n_sensors*self.n_envs
                                                     )
                 world.scene.add(self.contact_geom_prim_views[sensor_idx])   
         
@@ -183,6 +183,25 @@ class OmniContactSensors:
                 LogType.EXCEP,
                 throw_when_excep = True)
 
+        net_contact_f=self.contact_geom_prim_views[index].get_net_contact_forces(clone = clone, 
+                                            dt = dt)
+        # contact_force_data=self.contact_geom_prim_views[index].get_contact_force_data(clone = clone, 
+        #                                     dt = dt)
+        # print("#############################")
+        # print(net_contact_f)
+        # print("normal f")
+        # print(contact_force_data[0])
+        # print("points")
+        # print(contact_force_data[1])
+        # print("normals")
+        # print(contact_force_data[2])
+        # print("distances")
+        # print(contact_force_data[3])
+        # print("pair contacts count")
+        # print(contact_force_data[4])
+        # print("start indices of pair contacts")
+        # print(contact_force_data[5])
+        
         if env_indxs is None:
             return self.contact_geom_prim_views[index].get_net_contact_forces(clone = clone, 
                                             dt = dt).view(self.n_envs, 3)
@@ -219,5 +238,5 @@ class OmniContactSensors:
                             error,
                             LogType.EXCEP,
                             True)
-            return self.contact_geom_prim_views[index].get_net_contact_forces(clone = clone, 
-                                            dt = dt).view(self.n_envs, 3)[env_indxs, :]
+
+            return net_contact_f.view(self.n_envs, 3)[env_indxs, :]
