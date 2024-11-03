@@ -440,7 +440,7 @@ class XMjSimEnv(LRhcEnvBase):
         robot_name: str, 
         contact_link: str,
         env_indxs: torch.Tensor) -> torch.Tensor:
-        raise NotImplementedError()
+        return None
     
     def _init_robots_state(self):
 
