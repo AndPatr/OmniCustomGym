@@ -297,7 +297,9 @@ class XMjSimEnv(LRhcEnvBase):
         # we update the robots state 
         self._read_root_state_from_robot(env_indxs=env_indxs, 
             robot_name=robot_name)
-
+        self._read_jnts_state_from_robot(env_indxs=env_indxs,
+            robot_name=robot_name)
+        
     def _read_root_state_from_robot(self,
             robot_name: str,
             env_indxs: torch.Tensor = None,

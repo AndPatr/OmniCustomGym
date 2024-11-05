@@ -697,6 +697,8 @@ class IsaacSimEnv(LRhcEnvBase):
         # we update the robots state 
         self._read_root_state_from_robot(env_indxs=env_indxs, 
             robot_name=robot_name)
+        self._read_jnts_state_from_robot(env_indxs=env_indxs,
+            robot_name=robot_name)
         
     def _import_urdf(self, 
         robot_name: str,
