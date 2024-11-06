@@ -284,7 +284,15 @@ class XMjSimEnv(LRhcEnvBase):
 
     def _reset_sim(self):
         self._xmj_adapter.resetWorld()
-    
+        
+    def _set_startup_jnt_imp_gains(self,
+            robot_name:str, 
+            env_indxs: torch.Tensor = None):
+        super()._set_startup_jnt_imp_gains(robot_name=robot_name,env_indxs=env_indxs)
+        # apply jnt imp cmds to xbot immediately
+        self._xmj_adapter.apply_joint_impedances(self._jnt_imp_controllers[self._robot_names[0]].get_pvesd())
+        self._xmj_adapter.run(duration_sec=1.0)
+
     def _reset_state(self,
             robot_name: str,
             env_indxs: torch.Tensor = None,
@@ -293,6 +301,8 @@ class XMjSimEnv(LRhcEnvBase):
         if randomize:
             self._randomize_yaw(robot_name=robot_name,env_indxs=None)
             self._set_root_to_defconfig(robot_name=robot_name)
+        
+        self._reset_sim()
         
         # we update the robots state 
         self._read_root_state_from_robot(env_indxs=env_indxs, 
@@ -418,8 +428,6 @@ class XMjSimEnv(LRhcEnvBase):
 
         self._xmj_adapter.xmj_env().set_pi(self._root_p_default[robot_name].numpy())
         self._xmj_adapter.xmj_env().set_qi(self._root_q_default[robot_name].numpy())
-
-        self._reset_sim()
 
     def _get_solver_info(self):
         raise NotImplementedError()
