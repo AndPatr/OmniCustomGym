@@ -107,7 +107,7 @@ class XMjSimEnv(LRhcEnvBase):
     def _parse_env_opts(self):
         xmj_opts={}
         xmj_opts["use_gpu"]=False
-        xmj_opts["state_from_xbot"]=False
+        xmj_opts["state_from_xbot"]=True
         xmj_opts["device"]="cpu"
         xmj_opts["sim_device"]="cpu" if xmj_opts["use_gpu"] else "cpu"
         xmj_opts["physics_dt"]=1e-3
