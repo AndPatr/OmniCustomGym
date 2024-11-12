@@ -315,49 +315,52 @@ class XMjSimEnv(LRhcEnvBase):
             env_indxs: torch.Tensor = None,
             ):
         
-        if self._env_opts["use_diff_vels"]:
-            self._get_root_state(dt=self.physics_dt(),
+        self._get_root_state(numerical_diff=self._env_opts["use_diff_vels"],
                 env_indxs=env_indxs,
-                robot_name=robot_name) # updates robot states
-            # but velocities are obtained via num. differentiation
-        else:
-            self._get_root_state(env_indxs=env_indxs,
-                robot_name=robot_name) # velocities directly from simulator (can 
-            # introduce relevant artifacts, making them unrealistic)
+                robot_name=robot_name)
 
     def _read_jnts_state_from_robot(self,
         robot_name: str,
         env_indxs: torch.Tensor = None):            
         
-        if (not self._env_opts["state_from_xbot"]) and (not self._env_opts["use_diff_vels"]):
-            self._get_robots_jnt_state(env_indxs=env_indxs,
-                            robot_name=robot_name)
-        elif self._env_opts["state_from_xbot"] and (not self._env_opts["use_diff_vels"]):
-            self._get_robots_jnt_state_xbot(env_indxs=env_indxs,
-                            robot_name=robot_name)
-        elif (not self._env_opts["state_from_xbot"]) and self._env_opts["use_diff_vels"]:
-            self._get_robots_jnt_state(dt=self.physics_dt(),
-                            env_indxs=env_indxs,
-                            robot_name=robot_name) 
+        if (not self._env_opts["state_from_xbot"]):
+            self._get_robots_jnt_state(
+                numerical_diff=self._env_opts["use_diff_vels"],
+                env_indxs=env_indxs,
+                robot_name=robot_name)
         else:
-            self._get_robots_jnt_state_xbot(dt=self.physics_dt(),
-                            env_indxs=env_indxs,
-                            robot_name=robot_name) 
+            self._get_robots_jnt_state_xbot(
+                numerical_diff=self._env_opts["use_diff_vels"],
+                env_indxs=env_indxs,
+                robot_name=robot_name) 
+            
     def _get_root_state(self, 
         robot_name: str,
         env_indxs: torch.Tensor = None,
-        dt: float = None, 
+        numerical_diff: bool = False,
         base_loc: bool = True):
         
         self._root_p[robot_name][:, :] = torch.from_numpy(self._xmj_adapter.xmj_env().p).reshape(self._num_envs, -1).to(self._dtype)
         self._root_q[robot_name][:, :] = torch.from_numpy(self._xmj_adapter.xmj_env().q).reshape(self._num_envs, -1).to(self._dtype)
 
-        if dt is None:
+        dt=self._cluster_dt[robot_name] # getting diff state always at cluster rate
+
+        if not numerical_diff:
             # we get velocities from the simulation. This is not good since 
             # these can actually represent artifacts which do not have physical meaning.
             # It's better to obtain them by differentiation to avoid issues with controllers, etc...
             self._root_v[robot_name][:, :] = torch.from_numpy(self._xmj_adapter.xmj_env().twist[0:3]).reshape(self._num_envs, -1).to(self._dtype)             
             self._root_omega[robot_name][:, :] = torch.from_numpy(self._xmj_adapter.xmj_env().twist[3:6]).reshape(self._num_envs, -1).to(self._dtype)        
+            
+            # for now obtain root a numerically
+            self._root_a[robot_name][env_indxs, :] = (self._root_v[robot_name][env_indxs, :] - \
+                                            self._root_v_prev[robot_name][env_indxs, :]) / dt 
+            self._root_alpha[robot_name][env_indxs, :] = (self._root_omega[robot_name][env_indxs, :] - \
+                                            self._root_omega_prev[robot_name][env_indxs, :]) / dt 
+            
+            self._root_v_prev[robot_name][env_indxs, :] = self._root_v[robot_name][env_indxs, :] 
+            self._root_omega_prev[robot_name][env_indxs, :] = self._root_omega[robot_name][env_indxs, :]
+            
         else:
             # differentiate numerically
             self._root_v[robot_name][:, :] = (self._root_p[robot_name] - \
@@ -365,10 +368,17 @@ class XMjSimEnv(LRhcEnvBase):
             self._root_omega[robot_name][:, :] = quat_to_omega(self._root_q[robot_name], 
                                                         self._root_q_prev[robot_name], 
                                                         dt)
-    
+
+            self._root_a[robot_name][env_indxs, :] = (self._root_v[robot_name][env_indxs, :] - \
+                                                self._root_v_prev[robot_name][env_indxs, :]) / dt 
+            self._root_alpha[robot_name][env_indxs, :] = (self._root_omega[robot_name][env_indxs, :] - \
+                                            self._root_omega_prev[robot_name][env_indxs, :]) / dt 
+            
             # update "previous" data for numerical differentiation
             self._root_p_prev[robot_name][:, :] = self._root_p[robot_name]
             self._root_q_prev[robot_name][:, :] = self._root_q[robot_name]
+            self._root_v_prev[robot_name][env_indxs, :] = self._root_v[robot_name][env_indxs, :] 
+            self._root_omega_prev[robot_name][env_indxs, :] = self._root_omega[robot_name][env_indxs, :]
 
         if base_loc:
             # rotate robot twist in base local
@@ -382,17 +392,30 @@ class XMjSimEnv(LRhcEnvBase):
             self._root_v_base_loc[robot_name]=twist_base_loc[:, 0:3]
             self._root_omega_base_loc[robot_name]=twist_base_loc[:, 3:6]
 
+            # rotate robot a in base local
+            a_w=torch.cat((self._root_a[robot_name], 
+                self._root_alpha[robot_name]), 
+                dim=1)
+            a_base_loc=torch.cat((self._root_a_base_loc[robot_name], 
+                self._root_alpha_base_loc[robot_name]), 
+                dim=1)
+            world2base_frame(t_w=a_w,q_b=self._root_q[robot_name],t_out=a_base_loc)
+            self._root_a_base_loc[robot_name]=a_base_loc[:, 0:3]
+            self._root_alpha_base_loc[robot_name]=a_base_loc[:, 3:6]
+
             world2base_frame3D(v_w=self._gravity_normalized[robot_name],q_b=self._root_q[robot_name],
                 v_out=self._gravity_normalized_base_loc[robot_name])
 
     def _get_robots_jnt_state(self, 
         robot_name: str,
         env_indxs: torch.Tensor = None,
-        dt: float = None):
+        numerical_diff: bool = False):
+        
+        dt= self.physics_dt() if self._override_low_lev_controller else self._cluster_dt[robot_name]
 
         self._jnts_q[robot_name][:, :] = torch.from_numpy(self._xmj_adapter.xmj_env().jnts_q).reshape(self._num_envs, -1).to(self._dtype)
 
-        if dt is None:
+        if not numerical_diff:
             self._jnts_v[robot_name][:, :] = torch.from_numpy(self._xmj_adapter.xmj_env().jnts_v).reshape(self._num_envs, -1).to(self._dtype)     
         else: 
             self._jnts_v[robot_name][:, :] = self._jnts_v[robot_name][:, :] = (self._jnts_q[robot_name] - \
@@ -405,11 +428,13 @@ class XMjSimEnv(LRhcEnvBase):
     def _get_robots_jnt_state_xbot(self, 
         robot_name: str,
         env_indxs: torch.Tensor = None,
-        dt: float = None):
+        numerical_diff: bool = False):
 
         jnt_state_from_xbot=self._xmj_adapter.getJointsState().T # [3(p, v, e)x n_jnts]
 
         self._jnts_q[robot_name][:, :] = jnt_state_from_xbot[0,:]
+
+        dt= self.physics_dt() if self._override_low_lev_controller else self._cluster_dt[robot_name]
 
         if dt is None:
             self._jnts_v[robot_name][:, :] = jnt_state_from_xbot[1,:]
@@ -475,12 +500,20 @@ class XMjSimEnv(LRhcEnvBase):
             # root v (measured, default)
             self._root_v[robot_name] = torch.from_numpy(self._xmj_adapter.xmj_env().twist.copy()[0:3]).reshape(self._num_envs, -1).to(self._dtype)
             self._root_v_base_loc[robot_name] = torch.full_like(self._root_v[robot_name], fill_value=0.0)
+            self._root_v_prev[robot_name] = torch.full_like(self._root_v[robot_name], fill_value=0.0)
             self._root_v_default[robot_name] = self._root_v[robot_name].clone()
 
             # root omega (measured, default)
             self._root_omega[robot_name] = torch.from_numpy(self._xmj_adapter.xmj_env().twist.copy()[3:6]).reshape(self._num_envs, -1).to(self._dtype)
+            self._root_omega_prev[robot_name] = torch.full_like(self._root_omega[robot_name], fill_value=0.0)
             self._root_omega_base_loc[robot_name] = torch.full_like(self._root_omega[robot_name], fill_value=0.0)
             self._root_omega_default[robot_name] = self._root_omega[robot_name].clone()
+
+            # root a (measured,)
+            self._root_a[robot_name] = torch.full_like(self._root_v[robot_name], fill_value=0.0)
+            self._root_a_base_loc[robot_name] = torch.full_like(self._root_a[robot_name], fill_value=0.0)
+            self._root_alpha[robot_name] = torch.full_like(self._root_v[robot_name], fill_value=0.0)
+            self._root_alpha_base_loc[robot_name] = torch.full_like(self._root_alpha[robot_name], fill_value=0.0)
 
             # joints v (measured, default)
             self._jnts_v[robot_name] = torch.from_numpy(self._xmj_adapter.xmj_env().jnts_v.copy()).reshape(self._num_envs, -1).to(self._dtype)
