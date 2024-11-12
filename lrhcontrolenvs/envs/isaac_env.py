@@ -170,6 +170,7 @@ class IsaacSimEnv(LRhcEnvBase):
         global get_current_stage, Scene, ArticulationView, rep
         global OmniContactSensors, RlTerrains,OmniJntImpCntrl
         global PhysxSchema, UsdGeom
+        global _sensor
 
         from pxr import PhysxSchema, UsdGeom
 
@@ -187,6 +188,8 @@ class IsaacSimEnv(LRhcEnvBase):
         from omni.isaac.core.scenes.scene import Scene
         from omni.isaac.core.articulations import ArticulationView
         import omni.replicator.core as rep
+
+        from omni.isaac.sensor import _sensor
 
         from lrhcontrolenvs.utils.contact_sensor import OmniContactSensors
         from lrhcontrolenvs.utils.omni_jnt_imp_cntrl import OmniJntImpCntrl
@@ -520,7 +523,9 @@ class IsaacSimEnv(LRhcEnvBase):
             self._init_robots_state()
 
             self.scene_setup_completed = True
-            
+        
+        self._is = _sensor.acquire_imu_sensor_interface()
+
     def _is_link(self, prim):
         return prim.GetTypeName() == 'Xform' 
 
@@ -756,37 +761,31 @@ class IsaacSimEnv(LRhcEnvBase):
     def _read_root_state_from_robot(self,
         robot_name: str,
         env_indxs: torch.Tensor = None):
-        
-        if self._env_opts["use_diff_vels"]:
-            self._get_root_state(dt=self._cluster_dt[robot_name],
+
+        self._get_root_state(numerical_diff=self._env_opts["use_diff_vels"],
                 env_indxs=env_indxs,
-                robot_name=robot_name) # updates robot states
-            # but velocities are obtained via num. differentiation
-        else:
-            self._get_root_state(env_indxs=env_indxs,
-                            robot_name=robot_name) # velocities directly from simulator (can 
-            # introduce relevant artifacts, making them unrealistic)
+                robot_name=robot_name)
     
     def _read_jnts_state_from_robot(self,
         robot_name: str,
         env_indxs: torch.Tensor = None):
         
-        if self._env_opts["use_diff_vels"]:
-            self._get_robots_jnt_state(dt=self.physics_dt(),
-                            env_indxs=env_indxs,
-                            robot_name=robot_name) # updates robot states
-            # but velocities are obtained via num. differentiation
-        else:
-            self._get_robots_jnt_state(env_indxs=env_indxs,
-                            robot_name=robot_name) # velocities directly from simulator (can 
-            # introduce relevant artifacts, making them unrealistic)
-
+        self._get_robots_jnt_state(
+            numerical_diff=self._env_opts["use_diff_vels"],
+            env_indxs=env_indxs,
+            robot_name=robot_name)
+             
     def _get_root_state(self, 
         robot_name: str,
         env_indxs: torch.Tensor = None,
-        dt: float = None, 
+        numerical_diff: bool = False,
         base_loc: bool = True):
         
+        # reading = self._is.get_sensor_reading("/World/Cube/Imu_Sensor", 
+        #     use_latest_data = True)
+
+        dt=self._cluster_dt[robot_name] # getting diff state always at cluster rate
+
         # measurements from simulator are in world frame 
         if env_indxs is not None:
         
@@ -796,7 +795,7 @@ class IsaacSimEnv(LRhcEnvBase):
             
             self._root_p[robot_name][env_indxs, :] = pose[0] 
             self._root_q[robot_name][env_indxs, :] = pose[1] # root orientation
-            if dt is None:
+            if not numerical_diff:
                 # we get velocities from the simulation. This is not good since 
                 # these can actually represent artifacts which do not have physical meaning.
                 # It's better to obtain them by differentiation to avoid issues with controllers, etc...
@@ -806,6 +805,15 @@ class IsaacSimEnv(LRhcEnvBase):
                 self._root_omega[robot_name][env_indxs, :] = self._robots_art_views[robot_name].get_angular_velocities(
                                             clone = True,
                                             indices=env_indxs) # root ang. velocity
+                
+                # for now obtain root a numerically
+                self._root_a[robot_name][env_indxs, :] = (self._root_v[robot_name][env_indxs, :] - \
+                                                self._root_v_prev[robot_name][env_indxs, :]) / dt 
+                self._root_alpha[robot_name][env_indxs, :] = (self._root_omega[robot_name][env_indxs, :] - \
+                                                self._root_omega_prev[robot_name][env_indxs, :]) / dt 
+                
+                self._root_v_prev[robot_name][env_indxs, :] = self._root_v[robot_name][env_indxs, :] 
+                self._root_omega_prev[robot_name][env_indxs, :] = self._root_omega[robot_name][env_indxs, :]
             else:
                 # differentiate numerically
                 self._root_v[robot_name][env_indxs, :] = (self._root_p[robot_name][env_indxs, :] - \
@@ -813,10 +821,17 @@ class IsaacSimEnv(LRhcEnvBase):
                 self._root_omega[robot_name][env_indxs, :] = quat_to_omega(self._root_q[robot_name][env_indxs, :], 
                                                             self._root_q_prev[robot_name][env_indxs, :], 
                                                             dt)
-        
+
+                self._root_a[robot_name][env_indxs, :] = (self._root_v[robot_name][env_indxs, :] - \
+                                                self._root_v_prev[robot_name][env_indxs, :]) / dt 
+                self._root_alpha[robot_name][env_indxs, :] = (self._root_omega[robot_name][env_indxs, :] - \
+                                                self._root_omega_prev[robot_name][env_indxs, :]) / dt 
+
                 # update "previous" data for numerical differentiation
                 self._root_p_prev[robot_name][env_indxs, :] = self._root_p[robot_name][env_indxs, :] 
                 self._root_q_prev[robot_name][env_indxs, :] = self._root_q[robot_name][env_indxs, :]
+                self._root_v_prev[robot_name][env_indxs, :] = self._root_v[robot_name][env_indxs, :] 
+                self._root_omega_prev[robot_name][env_indxs, :] = self._root_omega[robot_name][env_indxs, :]
 
         else:
             # updating data for all environments
@@ -824,7 +839,7 @@ class IsaacSimEnv(LRhcEnvBase):
                                             clone = True) # tuple: (pos, quat)
             self._root_p[robot_name][:, :] = pose[0]  
             self._root_q[robot_name][:, :] = pose[1] # root orientation
-            if dt is None:
+            if not numerical_diff:
                 # we get velocities from the simulation. This is not good since 
                 # these can actually represent artifacts which do not have physical meaning.
                 # It's better to obtain them by differentiation to avoid issues with controllers, etc...
@@ -832,6 +847,14 @@ class IsaacSimEnv(LRhcEnvBase):
                                             clone = True) # root lin. velocity 
                 self._root_omega[robot_name][:, :] = self._robots_art_views[robot_name].get_angular_velocities(
                                                 clone = True) # root ang. velocity
+                
+                self._root_a[robot_name][:, :] = (self._root_v[robot_name][:, :] - \
+                                                self._root_v_prev[robot_name][:, :]) / dt 
+                self._root_alpha[robot_name][:, :] = (self._root_omega[robot_name][:, :] - \
+                                                self._root_omega_prev[robot_name][:, :]) / dt 
+                
+                self._root_v_prev[robot_name][:, :] = self._root_v[robot_name][:, :] 
+                self._root_omega_prev[robot_name][:, :]  = self._root_omega[robot_name][:, :]
             else: 
                 # differentiate numerically
                 self._root_v[robot_name][:, :] = (self._root_p[robot_name][:, :] - \
@@ -839,9 +862,17 @@ class IsaacSimEnv(LRhcEnvBase):
                 self._root_omega[robot_name][:, :] = quat_to_omega(self._root_q[robot_name][:, :], 
                                                             self._root_q_prev[robot_name][:, :], 
                                                             dt)
+
+                self._root_a[robot_name][:, :] = (self._root_v[robot_name][:, :] - \
+                                                self._root_v_prev[robot_name][:, :]) / dt 
+                self._root_alpha[robot_name][:, :] = (self._root_omega[robot_name][:, :] - \
+                                                self._root_omega_prev[robot_name][:, :]) / dt 
+                
                 # update "previous" data for numerical differentiation
                 self._root_p_prev[robot_name][:, :] = self._root_p[robot_name][:, :] 
                 self._root_q_prev[robot_name][:, :] = self._root_q[robot_name][:, :]
+                self._root_v_prev[robot_name][:, :] = self._root_v[robot_name][:, :] 
+                self._root_omega_prev[robot_name][:, :]  = self._root_omega[robot_name][:, :]
         
         if base_loc:
             # rotate robot twist in base local
@@ -854,14 +885,28 @@ class IsaacSimEnv(LRhcEnvBase):
             world2base_frame(t_w=twist_w,q_b=self._root_q[robot_name],t_out=twist_base_loc)
             self._root_v_base_loc[robot_name]=twist_base_loc[:, 0:3]
             self._root_omega_base_loc[robot_name]=twist_base_loc[:, 3:6]
-
+            
+            # rotate robot a in base local
+            a_w=torch.cat((self._root_a[robot_name], 
+                self._root_alpha[robot_name]), 
+                dim=1)
+            a_base_loc=torch.cat((self._root_a_base_loc[robot_name], 
+                self._root_alpha_base_loc[robot_name]), 
+                dim=1)
+            world2base_frame(t_w=a_w,q_b=self._root_q[robot_name],t_out=a_base_loc)
+            self._root_a_base_loc[robot_name]=a_base_loc[:, 0:3]
+            self._root_alpha_base_loc[robot_name]=a_base_loc[:, 3:6]
+            
+            # rotate gravity in base local
             world2base_frame3D(v_w=self._gravity_normalized[robot_name],q_b=self._root_q[robot_name],
                 v_out=self._gravity_normalized_base_loc[robot_name])
 
     def _get_robots_jnt_state(self, 
         robot_name: str,
         env_indxs: torch.Tensor = None,
-        dt: float = None):
+        numerical_diff: bool = False):
+        
+        dt= self.physics_dt() if self._override_low_lev_controller else self._cluster_dt[robot_name]
         
         # measurements from simulator are in world frame 
         if env_indxs is not None:
@@ -869,7 +914,7 @@ class IsaacSimEnv(LRhcEnvBase):
             self._jnts_q[robot_name][env_indxs, :] = self._robots_art_views[robot_name].get_joint_positions(
                                             clone = True,
                                             indices=env_indxs) # joint positions 
-            if dt is None:
+            if not numerical_diff:
                 self._jnts_v[robot_name][env_indxs, :] = self._robots_art_views[robot_name].get_joint_velocities( 
                                             clone = True,
                                             indices=env_indxs) # joint velocities
@@ -888,7 +933,7 @@ class IsaacSimEnv(LRhcEnvBase):
         else:
             self._jnts_q[robot_name][:, :] = self._robots_art_views[robot_name].get_joint_positions(
                                             clone = True) # joint positions 
-            if dt is None:
+            if not numerical_diff:
                 self._jnts_v[robot_name][:, :] = self._robots_art_views[robot_name].get_joint_velocities( 
                                                 clone = True) # joint velocities
             else: 
@@ -1043,16 +1088,25 @@ class IsaacSimEnv(LRhcEnvBase):
             self._root_v[robot_name] = self._robots_art_views[robot_name].get_linear_velocities(
                                             clone = True) # root lin. velocityù
             self._root_v_base_loc[robot_name] = torch.full_like(self._root_v[robot_name], fill_value=0.0)
+            self._root_v_prev[robot_name] = torch.full_like(self._root_v[robot_name], fill_value=0.0)
 
             self._root_v_default[robot_name] = torch.full_like(self._root_v[robot_name], fill_value=0.0)
             # root omega (measured, default)
             self._root_omega[robot_name] = self._robots_art_views[robot_name].get_angular_velocities(
                                             clone = True) # root ang. velocity
+            self._root_omega_prev[robot_name] = torch.full_like(self._root_omega[robot_name], fill_value=0.0)
+
             self._root_omega_base_loc[robot_name] = torch.full_like(self._root_omega[robot_name], fill_value=0.0)
             self._root_omega_default[robot_name] = torch.full((self._root_omega[robot_name].shape[0], self._root_omega[robot_name].shape[1]), 
                                                         0.0, 
                                                         dtype=self._dtype, 
                                                         device=self._device)
+            # root a (measured,)
+            self._root_a[robot_name] = torch.full_like(self._root_v[robot_name], fill_value=0.0)
+            self._root_a_base_loc[robot_name] = torch.full_like(self._root_a[robot_name], fill_value=0.0)
+            self._root_alpha[robot_name] = torch.full_like(self._root_v[robot_name], fill_value=0.0)
+            self._root_alpha_base_loc[robot_name] = torch.full_like(self._root_alpha[robot_name], fill_value=0.0)
+
             # joints v (measured, default)
             self._jnts_v[robot_name] = self._robots_art_views[robot_name].get_joint_velocities( 
                                             clone = True) # joint velocities
