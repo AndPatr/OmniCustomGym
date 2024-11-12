@@ -365,8 +365,8 @@ class XMjSimEnv(LRhcEnvBase):
             # differentiate numerically
             self._root_v[robot_name][:, :] = (self._root_p[robot_name] - \
                                             self._root_p_prev[robot_name]) / dt 
-            self._root_omega[robot_name][:, :] = quat_to_omega(self._root_q[robot_name], 
-                                                        self._root_q_prev[robot_name], 
+            self._root_omega[robot_name][:, :] = quat_to_omega(self._root_q_prev[robot_name], 
+                                                        self._root_q[robot_name], 
                                                         dt)
 
             self._root_a[robot_name][env_indxs, :] = (self._root_v[robot_name][env_indxs, :] - \
