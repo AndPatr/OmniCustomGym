@@ -19,8 +19,8 @@ import torch
 
 from omni.isaac.core.articulations.articulation_view import ArticulationView
 
-from SharsorIPCpp.PySharsorIPC import LogType
-from SharsorIPCpp.PySharsorIPC import Journal
+from EigenIPC.PyEigenIPC import LogType
+from EigenIPC.PyEigenIPC import Journal
 
 from lrhc_control.utils.jnt_imp_control_base import JntImpCntrlBase
         

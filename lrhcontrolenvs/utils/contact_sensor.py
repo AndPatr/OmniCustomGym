@@ -8,8 +8,8 @@ from typing import List, Dict
 from omni.isaac.core.world import World
 from omni.isaac.core.prims import RigidPrimView, RigidContactView
 
-from SharsorIPCpp.PySharsorIPC import LogType
-from SharsorIPCpp.PySharsorIPC import Journal
+from EigenIPC.PyEigenIPC import LogType
+from EigenIPC.PyEigenIPC import Journal
 
 class OmniContactSensors:
 

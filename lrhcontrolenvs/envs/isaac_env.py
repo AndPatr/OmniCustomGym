@@ -27,9 +27,9 @@ import numpy as np
 
 from typing import Union, Tuple, Dict, List
 
-from SharsorIPCpp.PySharsorIPC import VLevel
-from SharsorIPCpp.PySharsorIPC import LogType
-from SharsorIPCpp.PySharsorIPC import Journal
+from EigenIPC.PyEigenIPC import VLevel
+from EigenIPC.PyEigenIPC import LogType
+from EigenIPC.PyEigenIPC import Journal
 
 from lrhcontrolenvs.utils.math_utils import quat_to_omega, quaternion_difference, rel_vel
 
