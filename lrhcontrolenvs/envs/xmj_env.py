@@ -119,6 +119,7 @@ class XMjSimEnv(LRhcEnvBase):
         xmj_opts["headless"] = False
         xmj_opts["xmj_files_dir"]=None
         xmj_opts["xmj_timeout"]=1000
+        xmj_opts["xbot2_filter_prof"]="medium"
 
         xmj_opts.update(self._env_opts) # update defaults with provided opts
         xmj_opts["rendering_dt"]=xmj_opts["physics_dt"]
@@ -219,7 +220,9 @@ class XMjSimEnv(LRhcEnvBase):
                 allow_fallback=True,
                 enable_filters=True)
             self._xmj_adapter.startup()
-            
+            self._xmj_adapter.set_filters(set_enabled=True, 
+                profile_name=self._env_opts["xbot2_filter_prof"])
+
             to_monitor=[]
             jnt_names_sim=self._robot_jnt_names(robot_name=robot_name)
             for jnt in range(len(jnt_names_sim)):
