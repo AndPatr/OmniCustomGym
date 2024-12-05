@@ -31,7 +31,7 @@ from lrhcontrolenvs.utils.math_utils import quat_to_omega, quaternion_difference
 from lrhcontrolenvs.utils.xmj_jnt_imp_cntrl import XMjJntImpCntrl
 from lrhc_control.envs.lrhc_remote_env_base import LRhcEnvBase
 from adarl_ros.adapters.XbotMjAdapter import RosXbotAdapter
-from xbot2_mujoco.PyXbotMjSimEnv import LoadingUtils
+from xbot2_mujoco.PyXbotMjSim import LoadingUtils
 from control_cluster_bridge.utilities.math_utils_torch import world2base_frame,world2base_frame3D
 
 class RtDeploymentEnv(LRhcEnvBase):
@@ -481,7 +481,7 @@ class RtDeploymentEnv(LRhcEnvBase):
         self._ros_xbot_adapter.trigger_homing() # blocking, moves the robot using plugins
                 
     def _set_root_to_defconfig(self, robot_name: str):
-        msg="Cannot teleport robot in real world! Please ensure the robot is in the desired rese configuration"
+        msg="Cannot teleport robot in real world! Please ensure the robot is in the desired reset configuration"
         Journal.log(self.__class__.__name__,
             "_set_root_to_defconfig",
             msg,

@@ -30,7 +30,7 @@ from lrhcontrolenvs.utils.math_utils import quat_to_omega, quaternion_difference
 from lrhc_control.envs.lrhc_remote_env_base import LRhcEnvBase
 from lrhcontrolenvs.utils.xmj_jnt_imp_cntrl import XMjJntImpCntrl
 from adarl_ros.adapters.XbotMjAdapter import XbotMjAdapter
-from xbot2_mujoco.PyXbotMjSimEnv import LoadingUtils
+from xbot2_mujoco.PyXbotMjSim import LoadingUtils
 from control_cluster_bridge.utilities.math_utils_torch import world2base_frame,world2base_frame3D
 
 class XMjSimEnv(LRhcEnvBase):
