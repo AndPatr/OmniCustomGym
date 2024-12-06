@@ -611,7 +611,7 @@ class IsaacSimEnv(LRhcEnvBase):
         if self._simulation_app.is_running():
             self._simulation_app.close()
     
-    def _step_sim(self): 
+    def _step_world(self): 
         self._world.step(render=self._render)
 
     def _generate_jnt_imp_control(self, robot_name: str):
