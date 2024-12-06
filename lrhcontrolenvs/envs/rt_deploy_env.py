@@ -221,13 +221,13 @@ class RtDeploymentEnv(LRhcEnvBase):
     def _step_world(self): 
         walltime_to_sleep=self.physics_dt()-self._time_for_pre_step
         if walltime_to_sleep<0:
-            walltime_to_sleep=0
             Journal.log(self.__class__.__name__,
                 "_step_world",
                 f"RT performance violated of {walltime_to_sleep} s.",
                 LogType.WARN,
             throw_when_excep = True)
-
+            walltime_to_sleep=0
+            
         self._ros_xbot_adapter.run(duration_sec=self._env_opts["rt_safety_perf_coeff"]*walltime_to_sleep)
 
     def _generate_jnt_imp_control(self, robot_name: str):
@@ -366,7 +366,7 @@ class RtDeploymentEnv(LRhcEnvBase):
 
         world2base_frame3D(v_w=self._gravity_normalized[robot_name],q_b=self._root_q[robot_name],
                 v_out=self._gravity_normalized_base_loc[robot_name])
-                
+
         # if transf_to_base_loc:
         #     # rotate robot twist in base local
         #     twist_w=torch.cat((self._root_v[robot_name], 
