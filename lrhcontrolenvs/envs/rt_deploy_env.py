@@ -305,7 +305,7 @@ class RtDeploymentEnv(LRhcEnvBase):
         robot_name: str,
         env_indxs: torch.Tensor = None,
         numerical_diff: bool = False,
-        transf_to_base_loc: bool = True):
+        base_loc: bool = True):
         
         raise NotImplementedError()
 
@@ -313,7 +313,7 @@ class RtDeploymentEnv(LRhcEnvBase):
         robot_name: str,
         env_indxs: torch.Tensor = None,
         numerical_diff: bool = False,
-        transf_to_base_loc: bool = True):
+        base_loc: bool = True):
         
         frame_id, q, omega, linacc = self._ros_xbot_adapter.get_imu_data()
 
@@ -346,7 +346,7 @@ class RtDeploymentEnv(LRhcEnvBase):
             self._root_omega[robot_name][:, :] = quat_to_omega(self._root_q_prev[robot_name], 
                                                         self._root_q[robot_name], 
                                                         dt)
-
+            
             Journal.log(self.__class__.__name__,
                 "_get_root_state_xbot",
                 "Reading root state with differentiation not supported yet!!",
@@ -367,31 +367,10 @@ class RtDeploymentEnv(LRhcEnvBase):
         world2base_frame3D(v_w=self._gravity_normalized[robot_name],q_b=self._root_q[robot_name],
                 v_out=self._gravity_normalized_base_loc[robot_name])
 
-        # if transf_to_base_loc:
-        #     # rotate robot twist in base local
-        #     twist_w=torch.cat((self._root_v[robot_name], 
-        #         self._root_omega[robot_name]), 
-        #         dim=1)
-        #     twist_base_loc=torch.cat((self._root_v_base_loc[robot_name], 
-        #         self._root_omega_base_loc[robot_name]), 
-        #         dim=1)
-        #     world2base_frame(t_w=twist_w,q_b=self._root_q[robot_name],t_out=twist_base_loc)
-        #     self._root_v_base_loc[robot_name]=twist_base_loc[:, 0:3]
-        #     self._root_omega_base_loc[robot_name]=twist_base_loc[:, 3:6]
-
-        #     # rotate robot a in base local
-        #     a_w=torch.cat((self._root_a[robot_name], 
-        #         self._root_alpha[robot_name]), 
-        #         dim=1)
-        #     a_base_loc=torch.cat((self._root_a_base_loc[robot_name], 
-        #         self._root_alpha_base_loc[robot_name]), 
-        #         dim=1)
-        #     world2base_frame(t_w=a_w,q_b=self._root_q[robot_name],t_out=a_base_loc)
-        #     self._root_a_base_loc[robot_name]=a_base_loc[:, 0:3]
-        #     self._root_alpha_base_loc[robot_name]=a_base_loc[:, 3:6]
-
-        #     world2base_frame3D(v_w=self._gravity_normalized[robot_name],q_b=self._root_q[robot_name],
-        #         v_out=self._gravity_normalized_base_loc[robot_name])
+        #  no need to rotate robot twist in base local
+        self._root_omega_base_loc[robot_name][:, :]=self._root_omega[robot_name]
+        self._root_a_base_loc[robot_name][:, :]=self._root_a[robot_name]
+        self._root_alpha_base_loc[robot_name][:, :]=self._root_alpha[robot_name]
             
     def _get_robots_jnt_state(self, 
         robot_name: str,
