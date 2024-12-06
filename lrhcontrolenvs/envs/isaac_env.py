@@ -779,7 +779,7 @@ class IsaacSimEnv(LRhcEnvBase):
         robot_name: str,
         env_indxs: torch.Tensor = None,
         numerical_diff: bool = False,
-        base_loc: bool = True):
+        transf_to_base_loc: bool = True):
         
         # reading = self._is.get_sensor_reading("/World/Cube/Imu_Sensor", 
         #     use_latest_data = True)
@@ -875,7 +875,7 @@ class IsaacSimEnv(LRhcEnvBase):
                 self._root_v_prev[robot_name][:, :] = self._root_v[robot_name][:, :] 
                 self._root_omega_prev[robot_name][:, :]  = self._root_omega[robot_name][:, :]
         
-        if base_loc:
+        if transf_to_base_loc:
             # rotate robot twist in base local
             twist_w=torch.cat((self._root_v[robot_name], 
                 self._root_omega[robot_name]), 

@@ -347,7 +347,7 @@ class XMjSimEnv(LRhcEnvBase):
         robot_name: str,
         env_indxs: torch.Tensor = None,
         numerical_diff: bool = False,
-        base_loc: bool = True):
+        transf_to_base_loc: bool = True):
         
         self._root_p[robot_name][:, :] = torch.from_numpy(self._xmj_adapter.xmj_env().p).reshape(self._num_envs, -1).to(self._dtype)
         self._root_q[robot_name][:, :] = torch.from_numpy(self._xmj_adapter.xmj_env().q).reshape(self._num_envs, -1).to(self._dtype)
@@ -389,7 +389,7 @@ class XMjSimEnv(LRhcEnvBase):
             self._root_v_prev[robot_name][env_indxs, :] = self._root_v[robot_name][env_indxs, :] 
             self._root_omega_prev[robot_name][env_indxs, :] = self._root_omega[robot_name][env_indxs, :]
 
-        if base_loc:
+        if transf_to_base_loc:
             # rotate robot twist in base local
             twist_w=torch.cat((self._root_v[robot_name], 
                 self._root_omega[robot_name]), 
@@ -419,7 +419,7 @@ class XMjSimEnv(LRhcEnvBase):
         robot_name: str,
         env_indxs: torch.Tensor = None,
         numerical_diff: bool = False,
-        base_loc: bool = True):
+        transf_to_base_loc: bool = True):
         
         frame_id, q, omega, linacc = self._xmj_adapter.get_imu_data()
 

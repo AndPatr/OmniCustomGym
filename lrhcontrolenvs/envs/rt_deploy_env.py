@@ -288,7 +288,7 @@ class RtDeploymentEnv(LRhcEnvBase):
         robot_name: str,
         env_indxs: torch.Tensor = None,
         numerical_diff: bool = False,
-        base_loc: bool = True):
+        transf_to_base_loc: bool = True):
         
         raise NotImplementedError()
 
@@ -296,7 +296,7 @@ class RtDeploymentEnv(LRhcEnvBase):
         robot_name: str,
         env_indxs: torch.Tensor = None,
         numerical_diff: bool = False,
-        base_loc: bool = True):
+        transf_to_base_loc: bool = True):
         
         frame_id, q, omega, linacc = self._ros_xbot_adapter.get_imu_data()
 
@@ -347,7 +347,7 @@ class RtDeploymentEnv(LRhcEnvBase):
             # self._root_v_prev[robot_name][env_indxs, :] = self._root_v[robot_name][env_indxs, :] 
             self._root_omega_prev[robot_name][env_indxs, :] = self._root_omega[robot_name][env_indxs, :]
 
-        # if base_loc:
+        # if transf_to_base_loc:
         #     # rotate robot twist in base local
         #     twist_w=torch.cat((self._root_v[robot_name], 
         #         self._root_omega[robot_name]), 
