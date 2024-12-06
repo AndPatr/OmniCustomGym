@@ -111,6 +111,8 @@ class RtDeploymentEnv(LRhcEnvBase):
 
         xmj_opts["xmj_files_dir"]=None
 
+        xmj_opts["rt_safety_perf_coeff"]=1.0
+
         xmj_opts["xbot2_filter_prof"]="safe"
 
         xmj_opts.update(self._env_opts) # update defaults with provided opts
@@ -226,7 +228,7 @@ class RtDeploymentEnv(LRhcEnvBase):
                 LogType.WARN,
             throw_when_excep = True)
 
-        self._ros_xbot_adapter.run(duration_sec=self.physics_dt()-self._time_for_pre_step)
+        self._ros_xbot_adapter.run(duration_sec=self._env_opts["rt_safety_perf_coeff"]*walltime_to_sleep)
 
     def _generate_jnt_imp_control(self, robot_name: str):
         
@@ -362,6 +364,9 @@ class RtDeploymentEnv(LRhcEnvBase):
             # self._root_v_prev[robot_name][env_indxs, :] = self._root_v[robot_name][env_indxs, :] 
             self._root_omega_prev[robot_name][env_indxs, :] = self._root_omega[robot_name][env_indxs, :]
 
+        world2base_frame3D(v_w=self._gravity_normalized[robot_name],q_b=self._root_q[robot_name],
+                v_out=self._gravity_normalized_base_loc[robot_name])
+                
         # if transf_to_base_loc:
         #     # rotate robot twist in base local
         #     twist_w=torch.cat((self._root_v[robot_name], 
