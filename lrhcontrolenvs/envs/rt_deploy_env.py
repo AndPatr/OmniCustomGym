@@ -34,6 +34,7 @@ from adarl_ros.adapters.XbotMjAdapter import RosXbotAdapter
 from xbot2_mujoco.PyXbotMjSim import LoadingUtils
 from control_cluster_bridge.utilities.math_utils_torch import world2base_frame,world2base_frame3D
 
+import rospy
 class RtDeploymentEnv(LRhcEnvBase):
 
     def __init__(self,
@@ -112,6 +113,7 @@ class RtDeploymentEnv(LRhcEnvBase):
         xmj_opts["xmj_files_dir"]=None
 
         xmj_opts["rt_safety_perf_coeff"]=1.0
+        xmj_opts["use_sim_time"]=False
 
         xmj_opts["xbot2_filter_prof"]="safe"
 
@@ -206,19 +208,44 @@ class RtDeploymentEnv(LRhcEnvBase):
     def _apply_cmds_to_jnt_imp_control(self, robot_name:str):
         super()._apply_cmds_to_jnt_imp_control(robot_name=robot_name)
         self._ros_xbot_adapter.setJointsImpedanceCommand(self._jnt_imp_controllers[self._robot_names[0]].get_pvesd())
-    
-    def _pre_step_db(self): 
+
+    def _pre_step_db_stime(self):
+        start=rospy.get_time()
+        super()._pre_step_db()
+        self._time_for_pre_step=rospy.get_time()-start
+        print(self._time_for_pre_step)
+
+    def _pre_step_stime(self):
+        start=rospy.get_time()
+        super()._pre_step()
+        self._time_for_pre_step=rospy.get_time()-start
+        print(self._time_for_pre_step)
+
+    def _pre_step_db_rtime(self): 
         
         start=time.perf_counter()
         super()._pre_step_db()
         self._time_for_pre_step=time.perf_counter()-start
 
-    def _pre_step(self): 
+    def _pre_step_rtime(self): 
         start=time.perf_counter()
         super()._pre_step()
         self._time_for_pre_step=time.perf_counter()-start
 
+    def _pre_step_db(self):
+        if self._env_opts["use_sim_time"]:
+            self._pre_step_db_stime()
+        else:
+            self._pre_step_db_rtime()
+
+    def _pre_step(self): 
+        if self._env_opts["use_sim_time"]:
+            self._pre_step_stime()
+        else:
+            self._pre_step_rtime()
+
     def _step_world(self): 
+        
         walltime_to_sleep=self.physics_dt()-self._time_for_pre_step
         if walltime_to_sleep<0:
             Journal.log(self.__class__.__name__,
@@ -227,7 +254,7 @@ class RtDeploymentEnv(LRhcEnvBase):
                 LogType.WARN,
             throw_when_excep = True)
             walltime_to_sleep=0
-            
+                    
         self._ros_xbot_adapter.run(duration_sec=self._env_opts["rt_safety_perf_coeff"]*walltime_to_sleep)
 
     def _generate_jnt_imp_control(self, robot_name: str):
@@ -410,7 +437,7 @@ class RtDeploymentEnv(LRhcEnvBase):
             msg,
             LogType.WARN,
             throw_when_excep = True)
-        time.sleep(5.0)
+        # time.sleep(5.0)
 
     def _get_solver_info(self):
         raise NotImplementedError()
@@ -516,4 +543,11 @@ class RtDeploymentEnv(LRhcEnvBase):
         return self._robot_iface_enabled_jnts
     
     def _is_running(self):
-        return self._ros_xbot_adapter.is_ros_control_running()
+        running=self._ros_xbot_adapter.is_ros_control_running()
+        if not running:
+            Journal.log(self.__class__.__name__,
+            "_is_running",
+            "ros_control is not running",
+            LogType.WARN,
+            throw_when_excep = True)
+        return running
