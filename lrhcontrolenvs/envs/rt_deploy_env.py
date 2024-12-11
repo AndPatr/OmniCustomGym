@@ -256,7 +256,10 @@ class RtDeploymentEnv(LRhcEnvBase):
             walltime_to_sleep=0
                     
         self._ros_xbot_adapter.run(duration_sec=self._env_opts["rt_safety_perf_coeff"]*walltime_to_sleep)
-
+    
+    def _get_world_time(self, robot_name: str):
+        return rospy.get_time()
+    
     def _generate_jnt_imp_control(self, robot_name: str):
         
         jnt_imp_controller = XMjJntImpCntrl(xbot_adapter=self._ros_xbot_adapter,
