@@ -332,17 +332,17 @@ def convert_heightfield_to_trimesh(height_field_raw, horizontal_scale, vertical_
 
     return vertices, triangles
     
-def add_terrain_to_stage(stage, vertices, triangles, position=None, orientation=None):
+def add_terrain_to_stage(stage, vertices, triangles, position=None, orientation=None, prim_path: str = "/World/terrain"):
 
     num_faces = triangles.shape[0]
 
-    terrain_mesh = stage.DefinePrim("/World/terrain", 
+    terrain_mesh = stage.DefinePrim(prim_path, 
                         "Mesh")
     terrain_mesh.GetAttribute("points").Set(vertices)
     terrain_mesh.GetAttribute("faceVertexIndices").Set(triangles.flatten())
     terrain_mesh.GetAttribute("faceVertexCounts").Set(np.asarray([3]*num_faces))
 
-    terrain = XFormPrim(prim_path="/World/terrain",
+    terrain = XFormPrim(prim_path=prim_path,
                         name="terrain",
                         position=position,
                         orientation=orientation)

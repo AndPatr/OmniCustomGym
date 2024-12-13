@@ -28,11 +28,14 @@ from pxr import Usd
 class RlTerrains():
 
     def __init__(self, 
-                stage: Usd.Stage):
+                stage: Usd.Stage,
+                prim_path: str = "/World/terrain"):
         
         self._stage = stage
 
-    def get_wave_terrain(self, 
+        self._prim_path=prim_path
+
+    def create_wave_terrain(self, 
             terrain_size = 40,
             num_waves = 10, 
             amplitude = 1, 
@@ -74,9 +77,10 @@ class RlTerrains():
                     vertices=vertices, 
                     triangles=triangles,
                     position=position, 
-                    orientation=orientation)
+                    orientation=orientation,
+                    prim_path=self._prim_path)
     
-    def get_sloped_terrain(self, 
+    def create_sloped_terrain(self, 
                     terrain_size = 40,
                     slope = -0.5, 
                     position = np.array([0.0, 0.0, 0.0])):
@@ -117,9 +121,10 @@ class RlTerrains():
                     vertices=vertices, 
                     triangles=triangles,
                     position=position, 
-                    orientation=orientation)
+                    orientation=orientation,
+                    prim_path=self._prim_path)
     
-    def get_stairs_terrain(self, 
+    def create_stairs_terrain(self, 
                 terrain_size = 40,
                 step_width = 0.75, 
                 step_height = -0.5, 
@@ -161,9 +166,10 @@ class RlTerrains():
                     vertices=vertices, 
                     triangles=triangles,
                     position=position, 
-                    orientation=orientation)
+                    orientation=orientation,
+                    prim_path=self._prim_path)
 
-    def get_random_terrain(self, 
+    def create_random_terrain(self, 
                 terrain_size = 40, 
                 min_height = -0.2, 
                 max_height = 0.2, 
@@ -209,7 +215,8 @@ class RlTerrains():
                     vertices=vertices, 
                     triangles=triangles,
                     position=position, 
-                    orientation=orientation)
+                    orientation=orientation,
+                    prim_path=self._prim_path)
     
     def get_obstacles_terrain(self, 
                     terrain_size = 40.0, 
@@ -243,7 +250,12 @@ class RlTerrains():
         position = np.array([-terrain_width/2.0, terrain_length/2.0, 0]) + position
 
         orientation = np.array([0.70711, 0.0, 0.0, -0.70711])
-        add_terrain_to_stage(stage=self._stage, vertices=vertices, triangles=triangles, position=position, orientation=orientation)
+        add_terrain_to_stage(stage=self._stage, 
+                    vertices=vertices, 
+                    triangles=triangles, 
+                    position=position, 
+                    orientation=orientation,
+                    prim_path=self._prim_path)
 
     def post_reset(self):
 

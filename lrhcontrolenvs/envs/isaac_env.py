@@ -490,12 +490,8 @@ class IsaacSimEnv(LRhcEnvBase):
                             restitution=0.0)
             else:
                 
-                self.terrains = RlTerrains(get_current_stage())
-                self.terrains.get_obstacles_terrain(terrain_size=40, 
-                                            num_obs=100, 
-                                            max_height=0.4, 
-                                            min_size=0.5,
-                                            max_size=5.0)
+                self.terrain_utils = RlTerrains(get_current_stage(), prim_path=self._env_opts["ground_plane_prim_path"])
+                self.terrain_utils.create_random_terrain(terrain_size=40)
             # delete_prim(self._env_opts["ground_plane_prim_path"] + "/SphereLight") # we remove the default spherical light
             
             # set default camera viewport position and target
