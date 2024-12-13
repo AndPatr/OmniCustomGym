@@ -296,7 +296,7 @@ class RtDeploymentEnv(LRhcEnvBase):
             self._randomize_yaw(robot_name=robot_name,env_indxs=None)
             self._set_root_to_defconfig(robot_name=robot_name)
         
-        self._reset_sim()
+        # self._reset_sim()
         
         # we update the robots state 
         self._read_root_state_from_robot(env_indxs=env_indxs, 
