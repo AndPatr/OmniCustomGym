@@ -341,7 +341,7 @@ def add_terrain_to_stage(stage, vertices, triangles, position=None, orientation=
     terrain_mesh.GetAttribute("points").Set(vertices)
     terrain_mesh.GetAttribute("faceVertexIndices").Set(triangles.flatten())
     terrain_mesh.GetAttribute("faceVertexCounts").Set(np.asarray([3]*num_faces))
-
+    
     terrain = XFormPrim(prim_path=prim_path,
                         name="terrain",
                         position=position,

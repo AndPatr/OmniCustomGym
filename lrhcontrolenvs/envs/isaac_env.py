@@ -248,6 +248,9 @@ class IsaacSimEnv(LRhcEnvBase):
         isaac_opts["spawning_height"]=0.8
         isaac_opts["spawning_radius"]=1.0
         isaac_opts["use_flat_ground"]=True
+        isaac_opts["ground_type"]="random"
+        isaac_opts["ground_size"]=400
+        isaac_opts["terrain_border"]=isaac_opts["ground_size"]
         isaac_opts["contact_prims"] = []
         isaac_opts["sensor_radii"] = 0.1
         isaac_opts["contact_offsets"] = {}
@@ -481,17 +484,42 @@ class IsaacSimEnv(LRhcEnvBase):
                 #                                             )
                 # self._robots_geom_prim_views[robot_name].apply_collision_apis() # to be able to apply contact sensors
             
-            if self._env_opts["use_flat_ground"]:
-                self._scene.add_default_ground_plane(z_position=0, 
-                            name="terrain", 
-                            prim_path=self._env_opts["ground_plane_prim_path"], 
-                            static_friction=1.5, 
-                            dynamic_friction=1.5, 
-                            restitution=0.0)
-            else:
+            
+            self._ground_plane_prim_paths=[]
+            if not self._env_opts["use_flat_ground"]:
                 
-                self.terrain_utils = RlTerrains(get_current_stage(), prim_path=self._env_opts["ground_plane_prim_path"])
-                self.terrain_utils.create_random_terrain(terrain_size=40)
+                if self._env_opts["ground_type"]=="random":
+                    random_prim_path=self._env_opts["ground_plane_prim_path"]+"_random_unif"
+                    self._ground_plane_prim_paths.append(random_prim_path)
+                    self.terrain_utils = RlTerrains(get_current_stage(), prim_path=random_prim_path)
+                    self.terrain_utils.create_random_terrain(terrain_size=self._env_opts["ground_size"], 
+                        min_height=-0.05,
+                        max_height=0.001,
+                        step=0.1,
+                        position=np.array([0.0, 0.0,0.0]))
+                else:
+                    ground_type=self._env_opts["ground_type"]
+                    Journal.log(self.__class__.__name__,
+                        "_configure_scene",
+                        f"Terrain type {ground_type} not supported. Will default to flat ground.",
+                        LogType.WARN,
+                        throw_when_excep = True)
+            else:
+                defaul_prim_path=self._env_opts["ground_plane_prim_path"]+"_default"
+                self._ground_plane_prim_paths.append(defaul_prim_path)
+                self._scene.add_default_ground_plane(z_position=0, 
+                    name="terrain", 
+                    prim_path=defaul_prim_path, 
+                    static_friction=1.5, 
+                    dynamic_friction=1.5, 
+                    restitution=0.0)
+            # filter collisions between default ground plane and custom terrains
+            # self._cloner.filter_collisions(physicsscene_path = self._physics_context.prim_path,
+            #     collision_root_path = "/World/terrain_collisions", 
+            #     prim_paths=[self._ground_plane_prim_paths[1]], 
+            #     global_paths=[self._ground_plane_prim_paths[0]]
+            #     )
+
             # delete_prim(self._env_opts["ground_plane_prim_path"] + "/SphereLight") # we remove the default spherical light
             
             # set default camera viewport position and target
@@ -751,7 +779,7 @@ class IsaacSimEnv(LRhcEnvBase):
         self._cloner.filter_collisions(physicsscene_path = physicscene_path,
                                 collision_root_path = coll_root_path, 
                                 prim_paths=self._envs_prim_paths, 
-                                global_paths=[self._env_opts["ground_plane_prim_path"]] # can collide with these prims
+                                global_paths=self._ground_plane_prim_paths # can collide with these prims
                                 )
 
     def _read_root_state_from_robot(self,
@@ -790,6 +818,15 @@ class IsaacSimEnv(LRhcEnvBase):
                                             indices=env_indxs) # tuple: (pos, quat)
             
             self._root_p[robot_name][env_indxs, :] = pose[0] 
+
+            going_to_fly=self._root_p[robot_name][env_indxs, 0:2]>self._env_opts["terrain_border"]-0.1
+            if going_to_fly.any():
+                exception = f"One of the clones of {robot_name} is about to go out of the terrain!!"
+                Journal.log(self.__class__.__name__,
+                    "_get_root_state",
+                    exception,
+                    LogType.EXCEP,
+                    throw_when_excep = True)
             self._root_q[robot_name][env_indxs, :] = pose[1] # root orientation
             if not numerical_diff:
                 # we get velocities from the simulation. This is not good since 
