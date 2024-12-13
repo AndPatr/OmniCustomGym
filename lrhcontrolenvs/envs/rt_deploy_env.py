@@ -191,6 +191,8 @@ class RtDeploymentEnv(LRhcEnvBase):
             self._print_envs_info() # debug print
 
             self.scene_setup_completed = True
+
+            self._rospy_startime=rospy.get_time()
     
     def _xrdf_cmds(self, robot_name:str):
         cmds=super()._xrdf_cmds(robot_name=robot_name)
@@ -258,7 +260,7 @@ class RtDeploymentEnv(LRhcEnvBase):
         self._ros_xbot_adapter.run(duration_sec=self._env_opts["rt_safety_perf_coeff"]*walltime_to_sleep)
     
     def _get_world_time(self, robot_name: str):
-        return rospy.get_time()
+        return rospy.get_time()-self._rospy_startime
     
     def _generate_jnt_imp_control(self, robot_name: str):
         
