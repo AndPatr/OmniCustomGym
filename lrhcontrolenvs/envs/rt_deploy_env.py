@@ -215,13 +215,11 @@ class RtDeploymentEnv(LRhcEnvBase):
         start=rospy.get_time()
         super()._pre_step_db()
         self._time_for_pre_step=rospy.get_time()-start
-        print(self._time_for_pre_step)
 
     def _pre_step_stime(self):
         start=rospy.get_time()
         super()._pre_step()
         self._time_for_pre_step=rospy.get_time()-start
-        print(self._time_for_pre_step)
 
     def _pre_step_db_rtime(self): 
         
