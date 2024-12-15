@@ -115,7 +115,7 @@ class RtDeploymentEnv(LRhcEnvBase):
         xmj_opts["rt_safety_perf_coeff"]=1.0
         xmj_opts["use_sim_time"]=False
 
-        xmj_opts["xbot2_filter_prof"]="safe"
+        xmj_opts["xbot2_filter_prof"]="fast"
 
         xmj_opts.update(self._env_opts) # update defaults with provided opts
         
@@ -193,6 +193,7 @@ class RtDeploymentEnv(LRhcEnvBase):
             self.scene_setup_completed = True
 
             self._rospy_startime=rospy.get_time()
+            self._last_control_time=0.0
     
     def _xrdf_cmds(self, robot_name:str):
         cmds=super()._xrdf_cmds(robot_name=robot_name)
@@ -244,20 +245,28 @@ class RtDeploymentEnv(LRhcEnvBase):
         else:
             self._pre_step_rtime()
 
-    def _step_world(self): 
-        
-        walltime_to_sleep=self.physics_dt()-self._time_for_pre_step
+    def _apply_cmds_to_jnt_imp_control(self, robot_name:str):
+        super()._apply_cmds_to_jnt_imp_control(robot_name=robot_name)
+
+        elapsed_since_last_cmd=self._get_world_time(robot_name=robot_name)-\
+            self._last_control_time
+        walltime_to_sleep=self.physics_dt()-elapsed_since_last_cmd
         if walltime_to_sleep<0:
             Journal.log(self.__class__.__name__,
-                "_step_world",
+                "_apply_cmds_to_jnt_imp_control",
                 f"RT performance violated of {walltime_to_sleep} s.",
                 LogType.WARN,
             throw_when_excep = True)
-            walltime_to_sleep=0
-                    
-        self._ros_xbot_adapter.run(duration_sec=self._env_opts["rt_safety_perf_coeff"]*walltime_to_sleep)
-    
-    def _get_world_time(self, robot_name: str):
+            walltime_to_sleep=0 # do not sleep
+        rospy.sleep(self._env_opts["rt_safety_perf_coeff"]*walltime_to_sleep)
+        self._ros_xbot_adapter.apply_cmds_now() # write to robot (there could be
+        # communication delays)
+        self._last_control_time=self._get_world_time(robot_name=robot_name)
+ 
+    def _step_world(self): # real world steps by itself (hopefully)
+        pass
+
+    def _get_world_time(self, robot_name: str): # get relative walltime
         return rospy.get_time()-self._rospy_startime
     
     def _generate_jnt_imp_control(self, robot_name: str):
