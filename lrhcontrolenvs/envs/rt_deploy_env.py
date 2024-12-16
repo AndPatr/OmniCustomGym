@@ -257,7 +257,7 @@ class RtDeploymentEnv(LRhcEnvBase):
         super()._set_startup_jnt_imp_gains(robot_name=robot_name,env_indxs=env_indxs)
         # apply jnt imp cmds to xbot immediately
         self._ros_xbot_adapter.apply_joint_impedances(self._jnt_imp_controllers[self._robot_names[0]].get_pvesd())
-        self._ros_xbot_adapter.run(duration_sec=1.0)
+        # self._ros_xbot_adapter.step()
 
     def _reset_state(self,
             robot_name: str,
