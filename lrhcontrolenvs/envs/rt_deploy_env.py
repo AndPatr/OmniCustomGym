@@ -166,8 +166,6 @@ class RtDeploymentEnv(LRhcEnvBase):
             self._ros_xbot_adapter.set_filters(set_enabled=True, 
                 profile_name=self._env_opts["xbot2_filter_prof"])
 
-            self._time_for_pre_step=0.0
-
             to_monitor=[]
             self._robot_iface_enabled_jnts=self._ros_xbot_adapter.get_robot_interface().getEnabledJointNames()
             
@@ -211,39 +209,6 @@ class RtDeploymentEnv(LRhcEnvBase):
     def _apply_cmds_to_jnt_imp_control(self, robot_name:str):
         super()._apply_cmds_to_jnt_imp_control(robot_name=robot_name)
         self._ros_xbot_adapter.setJointsImpedanceCommand(self._jnt_imp_controllers[self._robot_names[0]].get_pvesd())
-
-    def _pre_step_db_stime(self):
-        start=rospy.get_time()
-        super()._pre_step_db()
-        self._time_for_pre_step=rospy.get_time()-start
-
-    def _pre_step_stime(self):
-        start=rospy.get_time()
-        super()._pre_step()
-        self._time_for_pre_step=rospy.get_time()-start
-
-    def _pre_step_db_rtime(self): 
-        
-        start=time.perf_counter()
-        super()._pre_step_db()
-        self._time_for_pre_step=time.perf_counter()-start
-
-    def _pre_step_rtime(self): 
-        start=time.perf_counter()
-        super()._pre_step()
-        self._time_for_pre_step=time.perf_counter()-start
-
-    def _pre_step_db(self):
-        if self._env_opts["use_sim_time"]:
-            self._pre_step_db_stime()
-        else:
-            self._pre_step_db_rtime()
-
-    def _pre_step(self): 
-        if self._env_opts["use_sim_time"]:
-            self._pre_step_stime()
-        else:
-            self._pre_step_rtime()
 
     def _apply_cmds_to_jnt_imp_control(self, robot_name:str):
         super()._apply_cmds_to_jnt_imp_control(robot_name=robot_name)
