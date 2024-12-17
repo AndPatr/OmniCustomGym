@@ -115,7 +115,7 @@ class RtDeploymentEnv(LRhcEnvBase):
         xmj_opts["rt_safety_perf_coeff"]=1.0
         xmj_opts["use_sim_time"]=False
 
-        xmj_opts["xbot2_filter_prof"]="fast"
+        xmj_opts["xbot2_filter_prof"]="medium"
 
         xmj_opts.update(self._env_opts) # update defaults with provided opts
         
@@ -205,14 +205,10 @@ class RtDeploymentEnv(LRhcEnvBase):
 
     def _close(self):
         pass
-    
+
     def _apply_cmds_to_jnt_imp_control(self, robot_name:str):
         super()._apply_cmds_to_jnt_imp_control(robot_name=robot_name)
         self._ros_xbot_adapter.setJointsImpedanceCommand(self._jnt_imp_controllers[self._robot_names[0]].get_pvesd())
-
-    def _apply_cmds_to_jnt_imp_control(self, robot_name:str):
-        super()._apply_cmds_to_jnt_imp_control(robot_name=robot_name)
-
         elapsed_since_last_cmd=self._get_world_time(robot_name=robot_name)-\
             self._last_control_time
         walltime_to_sleep=self.physics_dt()-elapsed_since_last_cmd
