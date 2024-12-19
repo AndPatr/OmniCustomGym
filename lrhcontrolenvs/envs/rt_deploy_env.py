@@ -20,7 +20,7 @@ import torch
 import numpy as np
 
 import time
-
+from perf_sleep.pyperfsleep import PerfSleep
 from typing import Union, Tuple, Dict, List
 
 from EigenIPC.PyEigenIPC import VLevel
@@ -115,7 +115,7 @@ class RtDeploymentEnv(LRhcEnvBase):
         xmj_opts["rt_safety_perf_coeff"]=1.0
         xmj_opts["use_sim_time"]=False
 
-        xmj_opts["xbot2_filter_prof"]="medium"
+        xmj_opts["xbot2_filter_prof"]="safe"
 
         xmj_opts.update(self._env_opts) # update defaults with provided opts
         
@@ -219,6 +219,10 @@ class RtDeploymentEnv(LRhcEnvBase):
                 LogType.WARN,
             throw_when_excep = True)
             walltime_to_sleep=0 # do not sleep
+        
+        # while self._get_world_time(robot_name=robot_name)-self._last_control_time < walltime_to_sleep:
+        #     ns=1000
+        #     PerfSleep.thread_sleep(ns)
         rospy.sleep(self._env_opts["rt_safety_perf_coeff"]*walltime_to_sleep)
         self._ros_xbot_adapter.apply_cmds_now() # write to robot (there could be
         # communication delays)
@@ -402,7 +406,7 @@ class RtDeploymentEnv(LRhcEnvBase):
 
     def _set_jnts_homing(self, robot_name: str):
         self._ros_xbot_adapter.trigger_homing() # blocking, moves the robot using plugins
-                
+    
     def _set_root_to_defconfig(self, robot_name: str):
         msg="Cannot teleport robot in real world! Please ensure the robot is in the desired reset configuration"
         Journal.log(self.__class__.__name__,
