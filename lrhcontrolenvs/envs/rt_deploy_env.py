@@ -115,7 +115,7 @@ class RtDeploymentEnv(LRhcEnvBase):
         xmj_opts["rt_safety_perf_coeff"]=1.0
         xmj_opts["use_sim_time"]=False
 
-        xmj_opts["xbot2_filter_prof"]="safe"
+        xmj_opts["xbot2_filter_prof"]="medium"
 
         xmj_opts.update(self._env_opts) # update defaults with provided opts
         
