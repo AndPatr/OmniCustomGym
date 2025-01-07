@@ -21,6 +21,7 @@ import carb
 
 import os
 import signal
+import re
 
 import torch
 import numpy as np
@@ -199,6 +200,8 @@ class IsaacSimEnv(LRhcEnvBase):
         isaac_opts={}
         isaac_opts["envs_ns"]="/World/envs"
         isaac_opts["template_env_ns"]=isaac_opts["envs_ns"] + "/env_0"
+        isaac_opts["base_linkname"]="base_link"
+        isaac_opts["deduce_base_link"]=False
         isaac_opts["ground_plane_prim_path"]="/World/terrain"
         isaac_opts["physics_prim_path"]="/physicsScene"
         isaac_opts["use_gpu"]=True
@@ -433,6 +436,17 @@ class IsaacSimEnv(LRhcEnvBase):
         # if "enable_viewport" in sim_params:
         #     self._render = sim_params["enable_viewport"]
 
+    def _get_baselink_candidate(self, 
+            robot_name: str):
+        
+        stage=get_current_stage()
+        all_prims = [prim.GetPath().pathString for prim in stage.Traverse()]
+        filtered_prims = [prim for prim in all_prims if f"/{robot_name}/" in prim]
+
+        matching=min(filtered_prims, key=len) if filtered_prims else None
+
+        return matching.split('/')[-1]
+
     def _configure_scene(self):
             
         # environment 
@@ -467,6 +481,11 @@ class IsaacSimEnv(LRhcEnvBase):
                 replicate_physics=self._env_opts["replicate_physics"],
                 position_offsets=self._env_opts["cloning_offset"]
             ) # we can clone the environment in which all the robos are
+
+            base_link_name=self._env_opts["base_linkname"]
+            if self._env_opts["deduce_base_link"]:
+                base_link_name=self._get_baselink_candidate(robot_name=robot_name)
+        
             Journal.log(self.__class__.__name__,
                         "set_up_scene",
                         "finishing scene setup...",
@@ -475,7 +494,7 @@ class IsaacSimEnv(LRhcEnvBase):
             for i in range(len(self._robot_names)):
                 robot_name = self._robot_names[i]
                 self._robots_art_views[robot_name] = ArticulationView(name = robot_name + "ArtView",
-                                                            prim_paths_expr = self._env_opts["envs_ns"] + "/env_.*"+ "/" + robot_name + "/base_link", 
+                                                            prim_paths_expr = self._env_opts["envs_ns"] + "/env_.*"+ "/" + robot_name + "/" + base_link_name, 
                                                             reset_xform_properties=False)
                 self._robots_articulations[robot_name] = self._scene.add(self._robots_art_views[robot_name])
                 # self._robots_geom_prim_views[robot_name] = GeometryPrimView(name = robot_name + "GeomView",
