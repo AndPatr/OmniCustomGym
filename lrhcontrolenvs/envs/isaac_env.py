@@ -212,7 +212,7 @@ class IsaacSimEnv(LRhcEnvBase):
         isaac_opts["self_collide"]=True
         isaac_opts["sim_device"]="cuda" if isaac_opts["use_gpu"] else "cpu"
         isaac_opts["physics_dt"]=1e-3
-        isaac_opts["rendering_dt"]=isaac_opts["physics_dt"]
+        isaac_opts["rendering_dt"]=15*isaac_opts["physics_dt"]
         isaac_opts["substeps"]=1 # number of physics steps to be taken for for each rendering step
         isaac_opts["gravity"] = np.array([0.0, 0.0, -9.81])
         isaac_opts["enable_scene_query_support"]=False
@@ -263,7 +263,7 @@ class IsaacSimEnv(LRhcEnvBase):
         isaac_opts["use_diff_vels"] = False
 
         isaac_opts.update(self._env_opts) # update defaults with provided opts
-        isaac_opts["rendering_dt"]=isaac_opts["physics_dt"]
+        # isaac_opts["rendering_dt"]=isaac_opts["physics_dt"]
         
         # modify things
         isaac_opts["cloning_offset"] = np.array([[0.0, 0.0, isaac_opts["spawning_height"]]]*self._num_envs)
