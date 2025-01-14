@@ -263,7 +263,8 @@ class IsaacSimEnv(LRhcEnvBase):
         isaac_opts["use_diff_vels"] = False
 
         isaac_opts.update(self._env_opts) # update defaults with provided opts
-        isaac_opts["rendering_dt"]=isaac_opts["physics_dt"] # forcing rendering_dt==physics_dt
+        isaac_opts["rendering_freq"]=int(isaac_opts["rendering_dt"]/isaac_opts["physics_dt"])
+        # isaac_opts["rendering_dt"]=isaac_opts["physics_dt"] # forcing rendering_dt==physics_dt
         # for some mystic reason simulation is infuenced by the rendering dt (why ??????)
         
         # modify things
@@ -325,9 +326,7 @@ class IsaacSimEnv(LRhcEnvBase):
         
         self._world = World(
             physics_dt=self._env_opts["physics_dt"], 
-            rendering_dt=self._env_opts["rendering_dt"], # dt between rendering steps. Note: rendering means rendering a frame of 
-            # the current application and not only rendering a frame to the viewports/ cameras. 
-            # So UI elements of Isaac Sim will be refereshed with this dt as well if running non-headless
+            rendering_dt=self._env_opts["physics_dt"],  # == physics dt (rendering is actually done manually by this env)
             backend=self._backend,
             device=str(self._env_opts["sim_device"]),
             physics_prim_path=self._env_opts["physics_prim_path"], 
@@ -342,8 +341,8 @@ class IsaacSimEnv(LRhcEnvBase):
             "use_gpu_pipeline: " + str(self._env_opts["use_gpu_pipeline"]) + "\n" + \
             "device: " + str(self._env_opts["sim_device"]) + "\n" +\
             "backend: " + str(self._backend) + "\n" +\
-            "integration_dt: " + str(self._env_opts["physics_dt"]) + "\n" + \
-            "rendering_dt: " + str(self._env_opts["rendering_dt"]) + "\n" 
+            "integration_dt: " + str(self.physics_dt()) + "\n" + \
+            "rendering_dt: " + str(self.rendering_dt()) + "\n" 
         Journal.log(self.__class__.__name__,
             "_init_world",
             big_info,
@@ -656,7 +655,10 @@ class IsaacSimEnv(LRhcEnvBase):
             self._simulation_app.close()
     
     def _step_world(self): 
-        self._world.step(render=self._render)
+        self._world.step(render=False, step_sim=True) 
+        if self._render and (self.step_counter%self._env_opts["rendering_freq"]==0):
+            self._render_sim() # manually trigger rendering (World.step(render=True) for some reason 
+            # will step the simulation for a dt==rendering_dt)
 
     def _generate_jnt_imp_control(self, robot_name: str):
         
@@ -1196,7 +1198,7 @@ class IsaacSimEnv(LRhcEnvBase):
         return self._world.get_physics_dt()
     
     def rendering_dt(self):
-        return self._world.get_rendering_dt()
+        return self._env_opts["rendering_dt"]
     
     def set_physics_dt(self, physics_dt:float):
         self._world.set_simulation_dt(physics_dt=physics_dt,rendering_dt=None)
