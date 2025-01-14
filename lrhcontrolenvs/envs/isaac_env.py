@@ -263,7 +263,8 @@ class IsaacSimEnv(LRhcEnvBase):
         isaac_opts["use_diff_vels"] = False
 
         isaac_opts.update(self._env_opts) # update defaults with provided opts
-        # isaac_opts["rendering_dt"]=isaac_opts["physics_dt"]
+        isaac_opts["rendering_dt"]=isaac_opts["physics_dt"] # forcing rendering_dt==physics_dt
+        # for some mystic reason simulation is infuenced by the rendering dt (why ??????)
         
         # modify things
         isaac_opts["cloning_offset"] = np.array([[0.0, 0.0, isaac_opts["spawning_height"]]]*self._num_envs)
