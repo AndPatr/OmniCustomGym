@@ -117,6 +117,8 @@ class RtDeploymentEnv(LRhcEnvBase):
 
         xmj_opts["xbot2_filter_prof"]="medium"
 
+        xmj_opts["use_mpc_pos_for_robot"]=False
+
         xmj_opts.update(self._env_opts) # update defaults with provided opts
         
         xmj_opts["use_gpu_pipeline"]=False
@@ -322,7 +324,11 @@ class RtDeploymentEnv(LRhcEnvBase):
         frame_id, q, omega, linacc = self._ros_xbot_adapter.get_imu_data()
 
         # in sim we get pos from sim
-        # self._root_p[robot_name][:, :] = torch.from_numpy(self._ros_xbot_adapter.xmj_env().p).reshape(self._num_envs, -1).to(self._dtype)
+
+        if self._env_opts["use_mpc_pos_for_robot"]:
+            actions=self.cluster_servers[robot_name].get_actions()
+            rhc_p=actions.root_state.get(data_type="p", gpu=self._use_gpu)
+            self._root_p[robot_name][:, :] = torch.sub(rhc_p, self._root_pos_offsets[robot_name])
 
         self._root_q[robot_name][:, :] = torch.from_numpy(q).reshape(self._num_envs, -1).to(self._dtype)
 
@@ -405,7 +411,8 @@ class RtDeploymentEnv(LRhcEnvBase):
         self._jnts_eff[robot_name][env_indxs, :] = jnt_state_from_xbot[2,:]
 
     def _set_jnts_homing(self, robot_name: str):
-        self._ros_xbot_adapter.trigger_homing() # blocking, moves the robot using plugins
+        #self._ros_xbot_adapter.trigger_homing() # blocking, moves the robot using plugins
+    	pass
     
     def _set_root_to_defconfig(self, robot_name: str):
         msg="Cannot teleport robot in real world! Please ensure the robot is in the desired reset configuration"
