@@ -328,7 +328,8 @@ class RtDeploymentEnv(LRhcEnvBase):
         if self._env_opts["use_mpc_pos_for_robot"]:
             actions=self.cluster_servers[robot_name].get_actions()
             rhc_p=actions.root_state.get(data_type="p", gpu=self._use_gpu)
-            self._root_p[robot_name][:, :] = torch.sub(rhc_p, self._root_pos_offsets[robot_name])
+            self._root_p[robot_name][:, :] = rhc_p
+            # self._root_p[robot_name][:, :] = torch.sub(rhc_p, self._root_pos_offsets[robot_name])
 
         self._root_q[robot_name][:, :] = torch.from_numpy(q).reshape(self._num_envs, -1).to(self._dtype)
 
