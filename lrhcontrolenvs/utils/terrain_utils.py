@@ -22,8 +22,7 @@ from scipy import interpolate
 from math import sqrt
 
 from omni.isaac.core.prims import XFormPrim
-from pxr import UsdPhysics, Sdf, Gf, PhysxSchema
-
+from pxr import UsdPhysics, Sdf, Gf, PhysxSchema, UsdGeom
 
 def random_uniform_terrain(terrain, min_height, max_height, step=1, downsampled_scale=None,):
     """
@@ -332,27 +331,70 @@ def convert_heightfield_to_trimesh(height_field_raw, horizontal_scale, vertical_
 
     return vertices, triangles
     
-def add_terrain_to_stage(stage, vertices, triangles, position=None, orientation=None, prim_path: str = "/World/terrain"):
+# def add_terrain_to_stage(stage, vertices, triangles, position=None, orientation=None, prim_path: str = "/World/terrain"):
 
+#     num_faces = triangles.shape[0]
+
+#     terrain_mesh = stage.DefinePrim(prim_path, 
+#                         "Mesh")
+#     terrain_mesh.GetAttribute("points").Set(vertices)
+#     terrain_mesh.GetAttribute("faceVertexIndices").Set(triangles.flatten())
+#     terrain_mesh.GetAttribute("faceVertexCounts").Set(np.asarray([3]*num_faces))
+    
+    # terrain = XFormPrim(prim_path=prim_path,
+    #                     name="terrain",
+    #                     position=position,
+    #                     orientation=orientation)
+
+#     UsdPhysics.CollisionAPI.Apply(terrain.prim)
+#     # collision_api = UsdPhysics.MeshCollisionAPI.Apply(terrain.prim)
+#     # collision_api.CreateApproximationAttr().Set("meshSimplification")
+#     physx_collision_api = PhysxSchema.PhysxCollisionAPI.Apply(terrain.prim)
+#     physx_collision_api.GetContactOffsetAttr().Set(0.02)
+#     physx_collision_api.GetRestOffsetAttr().Set(0.00)
+
+def add_terrain_to_stage(stage, vertices, triangles, position=None, orientation=None, 
+                         prim_path: str = "/World/terrain", dynamic_friction=0.5, static_friction=0.5, restitution=0.1, density=1000):
     num_faces = triangles.shape[0]
 
-    terrain_mesh = stage.DefinePrim(prim_path, 
-                        "Mesh")
+    # Create the terrain mesh in the stage
+    terrain_mesh = stage.DefinePrim(prim_path, "Mesh")
     terrain_mesh.GetAttribute("points").Set(vertices)
     terrain_mesh.GetAttribute("faceVertexIndices").Set(triangles.flatten())
-    terrain_mesh.GetAttribute("faceVertexCounts").Set(np.asarray([3]*num_faces))
+    terrain_mesh.GetAttribute("faceVertexCounts").Set(np.asarray([3] * num_faces))
     
+    # Create an Xform (transform) for the terrain, if position/ orientation is specified
+    # terrain = UsdGeom.Xform.Define(stage, prim_path)
+    # if position is not None:
+    #     terrain.AddTranslateOp().Set(value=position)
+    # if orientation is not None:
+    #     terrain.AddRotateXYZOp().Set(value=orientation)
     terrain = XFormPrim(prim_path=prim_path,
                         name="terrain",
                         position=position,
                         orientation=orientation)
+    # Apply Collision API for the terrain
+    collision_api = UsdPhysics.CollisionAPI.Apply(terrain.prim)
 
-    UsdPhysics.CollisionAPI.Apply(terrain.prim)
-    # collision_api = UsdPhysics.MeshCollisionAPI.Apply(terrain.prim)
-    # collision_api.CreateApproximationAttr().Set("meshSimplification")
+    # For PhysX, use PhysxCollisionAPI to adjust properties for collision behavior
     physx_collision_api = PhysxSchema.PhysxCollisionAPI.Apply(terrain.prim)
     physx_collision_api.GetContactOffsetAttr().Set(0.02)
     physx_collision_api.GetRestOffsetAttr().Set(0.00)
+
+    # Add Physics Material properties (friction, restitution, density)
+    physics_material=UsdPhysics.MaterialAPI.Apply(terrain.prim)
+    physics_material.CreateDynamicFrictionAttr(static_friction)
+    physics_material.CreateStaticFrictionAttr(dynamic_friction)
+    physics_material.CreateRestitutionAttr(restitution)
+
+    # Attach the material to the terrain’s collision
+    # collision_api.CreateMaterialRel().SetTargets([physics_material.GetPath()])
+
+    # Set the terrain as a static rigid body (non-moving, used for collision only)
+    # rigid_body_api = UsdPhysics.RigidBodyAPI.Apply(terrain)
+    # rigid_body_api.CreateRigidBodyTypeAttr(UsdPhysics.RigidBodyAPI.Type.Static)
+
+    return terrain
 
 class SubTerrain:
     def __init__(self, terrain_name="terrain", width=256, length=256, vertical_scale=1.0, horizontal_scale=1.0):

@@ -39,7 +39,10 @@ class RlTerrains():
             terrain_size = 40,
             num_waves = 10, 
             amplitude = 1, 
-            position = np.array([0.0, 0.0, 0.0])):
+            position = np.array([0.0, 0.0, 0.0]), 
+                dynamic_friction=0.5, 
+                static_friction=0.5, 
+                restitution=0.1):
 
         # creates a terrain
         num_terrains = 1
@@ -73,17 +76,23 @@ class RlTerrains():
 
         orientation = np.array([0.70711, 0.0, 0.0, -0.70711])
 
-        add_terrain_to_stage(stage=self._stage, 
+        return add_terrain_to_stage(stage=self._stage, 
                     vertices=vertices, 
                     triangles=triangles,
                     position=position, 
                     orientation=orientation,
-                    prim_path=self._prim_path)
+                    prim_path=self._prim_path,
+                    static_friction=dynamic_friction,
+                    dynamic_friction=static_friction,
+                    restitution=restitution)
     
     def create_sloped_terrain(self, 
                     terrain_size = 40,
                     slope = -0.5, 
-                    position = np.array([0.0, 0.0, 0.0])):
+                    position = np.array([0.0, 0.0, 0.0]), 
+                dynamic_friction=0.5, 
+                static_friction=0.5, 
+                restitution=0.1):
 
         # creates a terrain
         num_terrains = 1
@@ -117,18 +126,24 @@ class RlTerrains():
 
         orientation = np.array([0.70711, 0.0, 0.0, -0.70711])
 
-        add_terrain_to_stage(stage=self._stage, 
+        return add_terrain_to_stage(stage=self._stage, 
                     vertices=vertices, 
                     triangles=triangles,
                     position=position, 
                     orientation=orientation,
-                    prim_path=self._prim_path)
+                    prim_path=self._prim_path,
+                    static_friction=dynamic_friction,
+                    dynamic_friction=static_friction,
+                    restitution=restitution)
     
     def create_stairs_terrain(self, 
                 terrain_size = 40,
                 step_width = 0.75, 
                 step_height = -0.5, 
-                position = np.array([0.0, 0.0, 0.0])):
+                position = np.array([0.0, 0.0, 0.0]), 
+                dynamic_friction=0.5, 
+                static_friction=0.5, 
+                restitution=0.1):
 
         # creates a terrain
         num_terrains = 1
@@ -162,12 +177,15 @@ class RlTerrains():
 
         orientation = np.array([0.70711, 0.0, 0.0, -0.70711])
 
-        add_terrain_to_stage(stage=self._stage, 
+        return add_terrain_to_stage(stage=self._stage, 
                     vertices=vertices, 
                     triangles=triangles,
                     position=position, 
                     orientation=orientation,
-                    prim_path=self._prim_path)
+                    prim_path=self._prim_path,
+                    static_friction=dynamic_friction,
+                    dynamic_friction=static_friction,
+                    restitution=restitution)
 
     def create_random_terrain(self, 
                 terrain_size = 40, 
@@ -175,7 +193,10 @@ class RlTerrains():
                 max_height = 0.2, 
                 step = 0.2, 
                 downsampled_scale=0.5, 
-                position = np.array([0.0, 0.0, 0.0])):
+                position = np.array([0.0, 0.0, 0.0]), 
+                dynamic_friction=0.5, 
+                static_friction=0.5, 
+                restitution=0.1):
 
         # creates a terrain
         num_terrains = 1
@@ -211,12 +232,15 @@ class RlTerrains():
 
         orientation = np.array([0.70711, 0.0, 0.0, -0.70711])
 
-        add_terrain_to_stage(stage=self._stage, 
+        return add_terrain_to_stage(stage=self._stage, 
                     vertices=vertices, 
                     triangles=triangles,
                     position=position, 
                     orientation=orientation,
-                    prim_path=self._prim_path)
+                    prim_path=self._prim_path,
+                    static_friction=dynamic_friction,
+                    dynamic_friction=static_friction,
+                    restitution=restitution)
     
     def get_obstacles_terrain(self, 
                     terrain_size = 40.0, 
@@ -224,7 +248,10 @@ class RlTerrains():
                     max_height = 0.5,
                     min_size = 0.5,
                     max_size = 5.0,
-                    position = np.array([0.0, 0.0, 0.0])):
+                    position = np.array([0.0, 0.0, 0.0]), 
+                dynamic_friction=0.5, 
+                static_friction=0.5, 
+                restitution=0.1):
 
         # create all available terrain types
         num_terains = 1
@@ -250,12 +277,15 @@ class RlTerrains():
         position = np.array([-terrain_width/2.0, terrain_length/2.0, 0]) + position
 
         orientation = np.array([0.70711, 0.0, 0.0, -0.70711])
-        add_terrain_to_stage(stage=self._stage, 
+        return add_terrain_to_stage(stage=self._stage, 
                     vertices=vertices, 
                     triangles=triangles, 
                     position=position, 
                     orientation=orientation,
-                    prim_path=self._prim_path)
+                    prim_path=self._prim_path,
+                    static_friction=dynamic_friction,
+                    dynamic_friction=static_friction,
+                    restitution=restitution)
 
     def post_reset(self):
 

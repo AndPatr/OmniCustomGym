@@ -213,6 +213,9 @@ class IsaacSimEnv(LRhcEnvBase):
         isaac_opts["sim_device"]="cuda" if isaac_opts["use_gpu"] else "cpu"
         isaac_opts["physics_dt"]=1e-3
         isaac_opts["rendering_dt"]=15*isaac_opts["physics_dt"]
+        isaac_opts["static_friction"]=0.5
+        isaac_opts["dynamic_friction"]=0.5
+        isaac_opts["restitution"]=0.1
         isaac_opts["substeps"]=1 # number of physics steps to be taken for for each rendering step
         isaac_opts["gravity"] = np.array([0.0, 0.0, -9.81])
         isaac_opts["enable_scene_query_support"]=False
@@ -453,7 +456,56 @@ class IsaacSimEnv(LRhcEnvBase):
         self._fix_base = [self._env_opts["is_fixed_base"]] * len(self._robot_names)
         self._self_collide = [self._env_opts["self_collide"]]  * len(self._robot_names)
         self._merge_fixed = [self._env_opts["merge_fixed_jnts"]] * len(self._robot_names)
+        
+        Journal.log(self.__class__.__name__,
+                        "_configure_scene",
+                        "cloning environments...",
+                        LogType.STAT,
+                        throw_when_excep = True)
+        
+        self._ground_plane_prim_paths=[]
+        self._ground_plane=None
+        if not self._env_opts["use_flat_ground"]:
             
+            if self._env_opts["ground_type"]=="random":
+                random_prim_path=self._env_opts["ground_plane_prim_path"]+"_random_unif"
+                self._ground_plane_prim_paths.append(random_prim_path)
+                self.terrain_utils = RlTerrains(get_current_stage(), prim_path=random_prim_path)
+                self._ground_plane=self.terrain_utils.create_random_terrain(terrain_size=self._env_opts["ground_size"], 
+                    min_height=-0.05,
+                    max_height=0.001,
+                    step=0.1,
+                    position=np.array([0.0, 0.0,0.0]), 
+                    static_friction=self._env_opts["static_friction"], 
+                    dynamic_friction=self._env_opts["dynamic_friction"], 
+                    restitution=self._env_opts["restitution"])
+            else:
+                ground_type=self._env_opts["ground_type"]
+                Journal.log(self.__class__.__name__,
+                    "_configure_scene",
+                    f"Terrain type {ground_type} not supported. Will default to flat ground.",
+                    LogType.WARN,
+                    throw_when_excep = True)
+        else:
+            defaul_prim_path=self._env_opts["ground_plane_prim_path"]+"_default"
+            self._ground_plane_prim_paths.append(defaul_prim_path)
+            self._ground_plane=self._scene.add_default_ground_plane(z_position=0, 
+                name="terrain", 
+                prim_path=defaul_prim_path, 
+                static_friction=self._env_opts["static_friction"], 
+                dynamic_friction=self._env_opts["dynamic_friction"], 
+                restitution=self._env_opts["restitution"])
+            self._terrain_collision=None
+            
+            physics_material=UsdPhysics.MaterialAPI.Apply(self._ground_plane.prim)
+            physics_material.CreateDynamicFrictionAttr(self._env_opts["dynamic_friction"])
+            physics_material.CreateStaticFrictionAttr(self._env_opts["static_friction"])
+            physics_material.CreateRestitutionAttr(self._env_opts["restitution"])
+            # self._ground_plane.apply_physics_material(physics_material)
+
+        self._terrain_collision=PhysxSchema.PhysxCollisionAPI.Get(get_current_stage(), self._ground_plane.prim_path)
+        self._terrain_props=UsdPhysics.MaterialAPI.Get(get_current_stage(), self._ground_plane.prim_path)
+
         for i in range(len(self._robot_names)):
             robot_name = self._robot_names[i]
                 
@@ -470,11 +522,7 @@ class IsaacSimEnv(LRhcEnvBase):
                             fix_base=fix_base, 
                             self_collide=self_collide, 
                             merge_fixed=merge_fixed)
-            Journal.log(self.__class__.__name__,
-                        "_configure_scene",
-                        "cloning environments...",
-                        LogType.STAT,
-                        throw_when_excep = True)
+            
             self._cloner.clone(
                 source_prim_path=self._env_opts["template_env_ns"],
                 prim_paths=self._envs_prim_paths,
@@ -486,86 +534,57 @@ class IsaacSimEnv(LRhcEnvBase):
             if self._env_opts["deduce_base_link"]:
                 base_link_name=self._get_baselink_candidate(robot_name=robot_name)
         
-            Journal.log(self.__class__.__name__,
-                        "set_up_scene",
-                        "finishing scene setup...",
-                        LogType.STAT,
-                        throw_when_excep = True)
-            for i in range(len(self._robot_names)):
-                robot_name = self._robot_names[i]
-                self._robots_art_views[robot_name] = ArticulationView(name = robot_name + "ArtView",
-                                                            prim_paths_expr = self._env_opts["envs_ns"] + "/env_.*"+ "/" + robot_name + "/" + base_link_name, 
-                                                            reset_xform_properties=False)
-                self._robots_articulations[robot_name] = self._scene.add(self._robots_art_views[robot_name])
-                # self._robots_geom_prim_views[robot_name] = GeometryPrimView(name = robot_name + "GeomView",
-                #                                                 prim_paths_expr = self._env_ns + "/env*"+ "/" + robot_name,
-                #                                                 # prepare_contact_sensors = True
-                #                                             )
-                # self._robots_geom_prim_views[robot_name].apply_collision_apis() # to be able to apply contact sensors
-            
-            
-            self._ground_plane_prim_paths=[]
-            if not self._env_opts["use_flat_ground"]:
-                
-                if self._env_opts["ground_type"]=="random":
-                    random_prim_path=self._env_opts["ground_plane_prim_path"]+"_random_unif"
-                    self._ground_plane_prim_paths.append(random_prim_path)
-                    self.terrain_utils = RlTerrains(get_current_stage(), prim_path=random_prim_path)
-                    self.terrain_utils.create_random_terrain(terrain_size=self._env_opts["ground_size"], 
-                        min_height=-0.05,
-                        max_height=0.001,
-                        step=0.1,
-                        position=np.array([0.0, 0.0,0.0]))
-                else:
-                    ground_type=self._env_opts["ground_type"]
-                    Journal.log(self.__class__.__name__,
-                        "_configure_scene",
-                        f"Terrain type {ground_type} not supported. Will default to flat ground.",
-                        LogType.WARN,
-                        throw_when_excep = True)
-            else:
-                defaul_prim_path=self._env_opts["ground_plane_prim_path"]+"_default"
-                self._ground_plane_prim_paths.append(defaul_prim_path)
-                self._scene.add_default_ground_plane(z_position=0, 
-                    name="terrain", 
-                    prim_path=defaul_prim_path, 
-                    static_friction=1.5, 
-                    dynamic_friction=1.5, 
-                    restitution=0.0)
-            # filter collisions between default ground plane and custom terrains
-            # self._cloner.filter_collisions(physicsscene_path = self._physics_context.prim_path,
-            #     collision_root_path = "/World/terrain_collisions", 
-            #     prim_paths=[self._ground_plane_prim_paths[1]], 
-            #     global_paths=[self._ground_plane_prim_paths[0]]
-            #     )
+            self._robots_art_views[robot_name] = ArticulationView(name = robot_name + "ArtView",
+                                                        prim_paths_expr = self._env_opts["envs_ns"] + "/env_.*"+ "/" + robot_name + "/" + base_link_name, 
+                                                        reset_xform_properties=False)
+            self._robots_articulations[robot_name] = self._scene.add(self._robots_art_views[robot_name])
+            # self._robots_geom_prim_views[robot_name] = GeometryPrimView(name = robot_name + "GeomView",
+            #                                                 prim_paths_expr = self._env_ns + "/env*"+ "/" + robot_name,
+            #                                                 # prepare_contact_sensors = True
+            #                                             )
+            # self._robots_geom_prim_views[robot_name].apply_collision_apis() # to be able to apply contact sensors
 
-            # delete_prim(self._env_opts["ground_plane_prim_path"] + "/SphereLight") # we remove the default spherical light
-            
-            # set default camera viewport position and target
-            self._set_initial_camera_params()
-            self.apply_collision_filters(self._physics_context.prim_path, 
-                                "/World/collisions")
-            
             # init contact sensors
             self._init_contact_sensors(robot_name=robot_name) # IMPORTANT: this has to be called
             # after calling the clone() method and initializing articulation views!!
 
-            self._reset_sim()
+        
+        # filter collisions between default ground plane and custom terrains
+        # self._cloner.filter_collisions(physicsscene_path = self._physics_context.prim_path,
+        #     collision_root_path = "/World/terrain_collisions", 
+        #     prim_paths=[self._ground_plane_prim_paths[1]], 
+        #     global_paths=[self._ground_plane_prim_paths[0]]
+        #     )
 
-            self._fill_robot_info_from_world() 
-            # initializes robot state data
-            
-            # update solver options 
-            self._update_art_solver_options() 
-            self._get_solver_info() # get again solver option before printing everything
-            self._print_envs_info() # debug print
+        # delete_prim(self._env_opts["ground_plane_prim_path"] + "/SphereLight") # we remove the default spherical light
+        
+        # set default camera viewport position and target
+        self._set_initial_camera_params()
+        self.apply_collision_filters(self._physics_context.prim_path, 
+                            "/World/collisions")
 
-            # for n in range(self._n_init_steps): # run some initialization steps
-            #     self._step_sim()
+        self._reset_sim()
 
-            self._init_robots_state()
+        self._fill_robot_info_from_world() 
+        # initializes robot state data
+        
+        # update solver options 
+        self._update_art_solver_options() 
+        self._get_solver_info() # get again solver option before printing everything
+        self._print_envs_info() # debug print
 
-            self.scene_setup_completed = True
+        # for n in range(self._n_init_steps): # run some initialization steps
+        #     self._step_sim()
+
+        self._init_robots_state()
+
+        self.scene_setup_completed = True
+        
+        Journal.log(self.__class__.__name__,
+            "set_up_scene",
+            "finished scene setup...",
+            LogType.STAT,
+            throw_when_excep = True)
         
         self._is = _sensor.acquire_imu_sensor_interface()
 
@@ -847,7 +866,7 @@ class IsaacSimEnv(LRhcEnvBase):
                 Journal.log(self.__class__.__name__,
                     "_get_root_state",
                     exception,
-                    LogType.EXCEP,
+                    LogType.WARN,
                     throw_when_excep = True)
             self._root_q[robot_name][env_indxs, :] = pose[1] # root orientation
             if not numerical_diff:
@@ -895,6 +914,16 @@ class IsaacSimEnv(LRhcEnvBase):
                                             clone = True) # tuple: (pos, quat)
             self._root_p[robot_name][:, :] = pose[0]  
             self._root_q[robot_name][:, :] = pose[1] # root orientation
+
+            going_to_fly=self._root_p[robot_name][:, 0:2]>self._env_opts["terrain_border"]-0.1
+            if going_to_fly.any():
+                exception = f"One of the clones of {robot_name} is about to go out of the terrain!!"
+                Journal.log(self.__class__.__name__,
+                    "_get_root_state",
+                    exception,
+                    LogType.WARN,
+                    throw_when_excep = True)
+                
             if not numerical_diff:
                 # we get velocities from the simulation. This is not good since 
                 # these can actually represent artifacts which do not have physical meaning.
@@ -1049,6 +1078,18 @@ class IsaacSimEnv(LRhcEnvBase):
             # the operation was successful
 
     def _print_envs_info(self):
+
+        ground_info = f"[Ground info]" + "\n" + \
+            "static friction coeff.: " + str(self._terrain_props.CreateStaticFrictionAttr().Get()) + "\n" + \
+            "dynamics friction coeff.: " + str(self._terrain_props.GetDynamicFrictionAttr().Get()) + "\n" + \
+            "restitution coeff.: " + str(self._terrain_props.CreateRestitutionAttr().Get()) + "\n"
+        
+        Journal.log(self.__class__.__name__,
+            "_print_envs_info",
+            ground_info,
+            LogType.STAT,
+            throw_when_excep = True)
+        
         for i in range(0, len(self._robot_names)):
             robot_name = self._robot_names[i]
             task_info = f"[{robot_name}]" + "\n" + \
