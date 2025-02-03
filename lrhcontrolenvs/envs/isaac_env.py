@@ -112,7 +112,7 @@ class IsaacSimEnv(LRhcEnvBase):
         self._simulation_app = SimulationApp({"headless": self._env_opts["headless"]}, 
                                             experience=experience)
         # all imports depending on isaac sim kits have to be done after simulationapp
-        # from omni.isaac.core.tasks.base_task import BaseTask
+        # from isaacsim.core.tasks.base_task import BaseTask
         self._import_isaac_pkgs()
         info = "Using IsaacSim experience file @ " + experience
         Journal.log(self.__class__.__name__,
@@ -168,29 +168,29 @@ class IsaacSimEnv(LRhcEnvBase):
         # access Isaac's kit) and also expose to all methods the imports
         global World, omni_kit, get_context, UsdLux, Sdf, Gf, UsdPhysics, PhysicsSchemaTools
         global enable_extension, set_camera_view, _urdf, move_prim, GridCloner, prim_utils
-        global get_current_stage, Scene, ArticulationView, rep
+        global get_current_stage, Scene, Articulation, rep
         global OmniContactSensors, RlTerrains,OmniJntImpCntrl
         global PhysxSchema, UsdGeom
         global _sensor
 
         from pxr import PhysxSchema, UsdGeom
 
-        from omni.isaac.core.world import World
+        from isaacsim.core.api.world import World
         from omni.usd import get_context
         from pxr import UsdLux, Sdf, Gf, UsdPhysics, PhysicsSchemaTools
-        from omni.isaac.core.utils.extensions import enable_extension
-        from omni.isaac.core.utils.viewports import set_camera_view
+        from isaacsim.core.utils.extensions import enable_extension
+        from isaacsim.core.utils.viewports import set_camera_view
         import omni.kit as omni_kit
-        from omni.importer.urdf import _urdf
-        from omni.isaac.core.utils.prims import move_prim
-        from omni.isaac.cloner import GridCloner
-        import omni.isaac.core.utils.prims as prim_utils
-        from omni.isaac.core.utils.stage import get_current_stage
-        from omni.isaac.core.scenes.scene import Scene
-        from omni.isaac.core.articulations import ArticulationView
-        import omni.replicator.core as rep
-
-        from omni.isaac.sensor import _sensor
+        from isaacsim.asset.importer.urdf import _urdf
+        from isaacsim.core.utils.prims import move_prim
+        from isaacsim.core.cloner import GridCloner
+        import isaacsim.core.utils.prims as prim_utils
+        from isaacsim.core.utils.stage import get_current_stage
+        from isaacsim.core.api.scenes.scene import Scene
+        from isaacsim.core.prims import Articulation
+        # import omni.replicator.core as rep
+        
+        from isaacsim.sensors.physics import IMUSensor
 
         from lrhcontrolenvs.utils.contact_sensor import OmniContactSensors
         from lrhcontrolenvs.utils.omni_jnt_imp_cntrl import OmniJntImpCntrl
@@ -413,9 +413,9 @@ class IsaacSimEnv(LRhcEnvBase):
             "gpu_temp_buffer_capacity: " + str(self._gpu_temp_buffer_capacity) + "\n" + \
             "use_gpu_sim: " + str(self._world.get_physics_context().use_gpu_sim) + "\n" + \
             "use_gpu_pipeline: " + str(self._world.get_physics_context().use_gpu_pipeline) + "\n" + \
-            "use_fabric: " + str(self._world.get_physics_context().use_fabric) + "\n" + \
             "world device: " + str(self._world.get_physics_context().device) + "\n" + \
             "physics context device: " + str(self._world.get_physics_context().device) + "\n" 
+            # "use_fabric: " + str(self._world.get_physics_context().use_fabric) + "\n" + 
 
         Journal.log(self.__class__.__name__,
             "set_task",
@@ -493,7 +493,7 @@ class IsaacSimEnv(LRhcEnvBase):
                         throw_when_excep = True)
             for i in range(len(self._robot_names)):
                 robot_name = self._robot_names[i]
-                self._robots_art_views[robot_name] = ArticulationView(name = robot_name + "ArtView",
+                self._robots_art_views[robot_name] = Articulation(name = robot_name + "ArtView",
                                                             prim_paths_expr = self._env_opts["envs_ns"] + "/env_.*"+ "/" + robot_name + "/" + base_link_name, 
                                                             reset_xform_properties=False)
                 self._robots_articulations[robot_name] = self._scene.add(self._robots_art_views[robot_name])
@@ -506,7 +506,6 @@ class IsaacSimEnv(LRhcEnvBase):
             
             self._ground_plane_prim_paths=[]
             if not self._env_opts["use_flat_ground"]:
-                
                 if self._env_opts["ground_type"]=="random":
                     random_prim_path=self._env_opts["ground_plane_prim_path"]+"_random_unif"
                     self._ground_plane_prim_paths.append(random_prim_path)
@@ -529,8 +528,8 @@ class IsaacSimEnv(LRhcEnvBase):
                 self._scene.add_default_ground_plane(z_position=0, 
                     name="terrain", 
                     prim_path=defaul_prim_path, 
-                    static_friction=1.5, 
-                    dynamic_friction=1.5, 
+                    static_friction=0.8, 
+                    dynamic_friction=0.8, 
                     restitution=0.0)
             # filter collisions between default ground plane and custom terrains
             # self._cloner.filter_collisions(physicsscene_path = self._physics_context.prim_path,
@@ -789,6 +788,7 @@ class IsaacSimEnv(LRhcEnvBase):
 
         robot_base_prim_path = self._env_opts["template_env_ns"] + "/" + robot_name
         # moving default prim to base prim path for cloning
+        
         move_prim(robot_prim_path_default, # from
                 robot_base_prim_path) # to
         

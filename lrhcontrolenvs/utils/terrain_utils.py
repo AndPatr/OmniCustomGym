@@ -21,7 +21,7 @@ from scipy import interpolate
 
 from math import sqrt
 
-from omni.isaac.core.prims import XFormPrim
+from isaacsim.core.prims import XFormPrim
 from pxr import UsdPhysics, Sdf, Gf, PhysxSchema
 
 

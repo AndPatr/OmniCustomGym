@@ -17,7 +17,7 @@
 # 
 import torch 
 
-from omni.isaac.core.articulations.articulation_view import ArticulationView
+from isaacsim.core.prims import Articulation
 
 from EigenIPC.PyEigenIPC import LogType
 from EigenIPC.PyEigenIPC import Journal
@@ -27,7 +27,7 @@ from lrhc_control.utils.jnt_imp_control_base import JntImpCntrlBase
 class OmniJntImpCntrl(JntImpCntrlBase):
 
     def __init__(self, 
-        articulation: ArticulationView,
+        articulation: Articulation,
         default_pgain: float = 300.0, 
         default_vgain: float = 10.0, 
         device: torch.device = torch.device("cpu"), 
