@@ -243,17 +243,19 @@ class RlTerrains():
                     restitution=restitution)
     
     def create_random_patched_terrain(self, 
-                terrain_size=40, 
-                min_height=-0.2, 
-                max_height=0.2, 
-                step=0.2, 
-                downsampled_scale=0.5, 
-                position=np.array([0.0, 0.0, 0.0]), 
-                dynamic_friction=0.5, 
-                static_friction=0.5, 
-                restitution=0.1,
-                patch_ratio=0.3,
-                patch_size=10):
+                    terrain_size=40, 
+                    min_height=-0.2, 
+                    max_height=0.2, 
+                    step=0.2, 
+                    downsampled_scale=0.5, 
+                    position=np.array([0.0, 0.0, 0.0]), 
+                    dynamic_friction=0.5, 
+                    static_friction=0.5, 
+                    restitution=0.1,
+                    patch_ratio=0.3,
+                    patch_size=10,
+                    with_walls: bool =True,
+                    wall_height: float = 2.0):
 
         # Terrain dimensions
         num_terrains = 1
@@ -269,15 +271,15 @@ class RlTerrains():
 
         def new_sub_terrain(): 
             return SubTerrain(width=num_rows, 
-                              length=num_cols,
-                              vertical_scale=vertical_scale, 
-                              horizontal_scale=horizontal_scale)
+                            length=num_cols,
+                            vertical_scale=vertical_scale, 
+                            horizontal_scale=horizontal_scale)
 
         # Generate base terrain
         terrain = random_uniform_terrain(new_sub_terrain(), 
-                                         min_height=min_height, max_height=max_height, 
-                                         step=step, 
-                                         downsampled_scale=downsampled_scale)
+                                        min_height=min_height, max_height=max_height, 
+                                        step=step, 
+                                        downsampled_scale=downsampled_scale)
         heightfield[0:num_rows, :] = terrain.height_field_raw
 
         # Apply flat patches
@@ -294,11 +296,19 @@ class RlTerrains():
             heightfield[patch_x:patch_x + int(patch_size / horizontal_scale),
                         patch_y:patch_y + int(patch_size / horizontal_scale)] = patch_height / vertical_scale
 
+        if with_walls:
+            # Add vertical walls at the borders (2 meters height)
+            wall_height = wall_height / vertical_scale  # Convert meters to heightmap scale
+            heightfield[0, :] = wall_height  # Top border
+            heightfield[-1, :] = wall_height  # Bottom border
+            heightfield[:, 0] = wall_height  # Left border
+            heightfield[:, -1] = wall_height  # Right border
+
         # Convert to mesh
         vertices, triangles = convert_heightfield_to_trimesh(heightfield, 
-                                                             horizontal_scale=horizontal_scale,
-                                                             vertical_scale=vertical_scale, 
-                                                             slope_threshold=1.5)
+                                                            horizontal_scale=horizontal_scale,
+                                                            vertical_scale=vertical_scale, 
+                                                            slope_threshold=1.5)
 
         position = np.array([-terrain_width / 2.0, terrain_length / 2.0, 0]) + position
         orientation = np.array([0.70711, 0.0, 0.0, -0.70711])
@@ -312,6 +322,7 @@ class RlTerrains():
                                     static_friction=dynamic_friction,
                                     dynamic_friction=static_friction,
                                     restitution=restitution)
+
     
     def get_obstacles_terrain(self, 
                     terrain_size = 40.0, 
