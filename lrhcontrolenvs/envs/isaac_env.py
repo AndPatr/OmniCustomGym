@@ -568,13 +568,11 @@ class IsaacSimEnv(LRhcEnvBase):
             self._init_contact_sensors(robot_name=robot_name) # IMPORTANT: this has to be called
             # after calling the clone() method and initializing articulation views!!
 
-        prim=get_prim_at_path("/World/envs/env_0/kyon_no_wheels/lower_leg_4/collisions/mesh_1")
-        physics_material=UsdPhysics.MaterialAPI.Apply(prim)
-        physics_material.CreateDynamicFrictionAttr(0)
-        physics_material.CreateStaticFrictionAttr(0)
-        physics_material.CreateRestitutionAttr(1.0)
+        # self._set_contact_links_material(prim_path="/World/envs/env_0/kyon_no_wheels/lower_leg_1/collisions/mesh_1")
+        # self._set_contact_links_material(prim_path="/World/envs/env_0/kyon_no_wheels/lower_leg_2/collisions/mesh_1")
+        # self._set_contact_links_material(prim_path="/World/envs/env_0/kyon_no_wheels/lower_leg_3/collisions/mesh_1")
+        # self._set_contact_links_material(prim_path="/World/envs/env_0/kyon_no_wheels/lower_leg_4/collisions/mesh_1")
 
-        
         # filter collisions between default ground plane and custom terrains
         # self._cloner.filter_collisions(physicsscene_path = self._physics_context.prim_path,
         #     collision_root_path = "/World/terrain_collisions", 
@@ -613,6 +611,16 @@ class IsaacSimEnv(LRhcEnvBase):
             throw_when_excep = True)
         
         self._is = _sensor.acquire_imu_sensor_interface()
+
+    def _set_contact_links_material(self, prim_path: str):
+        prim=get_prim_at_path(prim_path)
+        physics_material=UsdPhysics.MaterialAPI.Apply(prim)
+        physics_material.CreateDynamicFrictionAttr(0)
+        physics_material.CreateStaticFrictionAttr(0)
+        physics_material.CreateRestitutionAttr(1.0)
+        physxMaterialAPI=PhysxSchema.PhysxMaterialAPI.Apply(prim)
+        physxMaterialAPI.CreateFrictionCombineModeAttr().Set("multiply") # average, min, multiply, max 
+        physxMaterialAPI.CreateRestitutionCombineModeAttr().Set("multiply")
 
     def _is_link(self, prim):
         return prim.GetTypeName() == 'Xform' 
