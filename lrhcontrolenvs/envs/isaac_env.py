@@ -258,7 +258,7 @@ class IsaacSimEnv(LRhcEnvBase):
         isaac_opts["spawning_radius"]=1.0
         isaac_opts["use_flat_ground"]=True
         isaac_opts["ground_type"]="random"
-        isaac_opts["ground_size"]=400
+        isaac_opts["ground_size"]=5000
         isaac_opts["terrain_border"]=isaac_opts["ground_size"]/2
         isaac_opts["contact_prims"] = []
         isaac_opts["sensor_radii"] = 0.1
