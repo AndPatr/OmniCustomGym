@@ -23,6 +23,7 @@ from math import sqrt
 
 from omni.isaac.core.prims import XFormPrim
 from pxr import UsdPhysics, Sdf, Gf, PhysxSchema, UsdGeom
+from omni.physx.scripts.utils import addRigidBodyMaterial
 
 def random_uniform_terrain(terrain, min_height, max_height, step=1, downsampled_scale=None,):
     """
@@ -354,7 +355,9 @@ def convert_heightfield_to_trimesh(height_field_raw, horizontal_scale, vertical_
 #     physx_collision_api.GetRestOffsetAttr().Set(0.00)
 
 def add_terrain_to_stage(stage, vertices, triangles, position=None, orientation=None, 
-                         prim_path: str = "/World/terrain", dynamic_friction=0.5, static_friction=0.5, restitution=0.1, density=1000):
+                         prim_path: str = "/World/terrain", 
+            dynamic_friction=0.5, static_friction=0.5,
+            restitution=0.1, density=1000):
     num_faces = triangles.shape[0]
 
     # Create the terrain mesh in the stage
@@ -382,11 +385,21 @@ def add_terrain_to_stage(stage, vertices, triangles, position=None, orientation=
     physx_collision_api.GetRestOffsetAttr().Set(0.00)
 
     # Add Physics Material properties (friction, restitution, density)
+    # success=addRigidBodyMaterial(stage=stage,
+    #     path=prim_path,
+    #     staticFriction=static_friction,
+    #     dynamicFriction=dynamic_friction,
+    #     restitution=restitution)
+    # if not success:
+    #     raise Exception(f"Failed to add RigidBodyMaterial to prim at {prim_path}")
     physics_material=UsdPhysics.MaterialAPI.Apply(terrain.prim)
-    physics_material.CreateDynamicFrictionAttr(static_friction)
-    physics_material.CreateStaticFrictionAttr(dynamic_friction)
-    physics_material.CreateRestitutionAttr(restitution)
-
+    physics_material.CreateDynamicFrictionAttr().Set(static_friction)
+    physics_material.CreateStaticFrictionAttr().Set(dynamic_friction)
+    physics_material.CreateRestitutionAttr().Set(restitution)
+    physxMaterialAPI=PhysxSchema.PhysxMaterialAPI.Apply(terrain.prim)
+    physxMaterialAPI.CreateFrictionCombineModeAttr().Set("multiply") # average, min, multiply, max 
+    physxMaterialAPI.CreateRestitutionCombineModeAttr().Set("multiply")
+    # physxMaterialAPI.CreateDampingCombineModeAttr().Set("multiply")
     # Attach the material to the terrain’s collision
     # collision_api.CreateMaterialRel().SetTargets([physics_material.GetPath()])
 

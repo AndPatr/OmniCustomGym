@@ -172,6 +172,7 @@ class IsaacSimEnv(LRhcEnvBase):
         global OmniContactSensors, RlTerrains,OmniJntImpCntrl
         global PhysxSchema, UsdGeom
         global _sensor
+        global get_prim_at_path
 
         from pxr import PhysxSchema, UsdGeom
 
@@ -189,6 +190,8 @@ class IsaacSimEnv(LRhcEnvBase):
         from omni.isaac.core.scenes.scene import Scene
         from omni.isaac.core.articulations import ArticulationView
         import omni.replicator.core as rep
+
+        from omni.isaac.core.utils.prims import get_prim_at_path
 
         from omni.isaac.sensor import _sensor
 
@@ -256,7 +259,7 @@ class IsaacSimEnv(LRhcEnvBase):
         isaac_opts["use_flat_ground"]=True
         isaac_opts["ground_type"]="random"
         isaac_opts["ground_size"]=400
-        isaac_opts["terrain_border"]=isaac_opts["ground_size"]
+        isaac_opts["terrain_border"]=isaac_opts["ground_size"]/2
         isaac_opts["contact_prims"] = []
         isaac_opts["sensor_radii"] = 0.1
         isaac_opts["contact_offsets"] = {}
@@ -504,7 +507,8 @@ class IsaacSimEnv(LRhcEnvBase):
         else:
             defaul_prim_path=self._env_opts["ground_plane_prim_path"]+"_default"
             self._ground_plane_prim_paths.append(defaul_prim_path)
-            self._ground_plane=self._scene.add_default_ground_plane(z_position=0, 
+            self._ground_plane=self._scene.add_ground_plane(z_position=0, 
+                size=self._env_opts["ground_size"],
                 name="terrain", 
                 prim_path=defaul_prim_path, 
                 static_friction=self._env_opts["static_friction"], 
@@ -519,7 +523,8 @@ class IsaacSimEnv(LRhcEnvBase):
             # self._ground_plane.apply_physics_material(physics_material)
 
         self._terrain_collision=PhysxSchema.PhysxCollisionAPI.Get(get_current_stage(), self._ground_plane.prim_path)
-        self._terrain_props=UsdPhysics.MaterialAPI.Get(get_current_stage(), self._ground_plane.prim_path)
+        self._terrain_material=UsdPhysics.MaterialAPI.Get(get_current_stage(), self._ground_plane.prim_path)
+        self._terrain_physix_material=PhysxSchema.PhysxMaterialAPI.Get(get_current_stage(), self._ground_plane.prim_path)
 
         for i in range(len(self._robot_names)):
             robot_name = self._robot_names[i]
@@ -562,6 +567,12 @@ class IsaacSimEnv(LRhcEnvBase):
             # init contact sensors
             self._init_contact_sensors(robot_name=robot_name) # IMPORTANT: this has to be called
             # after calling the clone() method and initializing articulation views!!
+
+        prim=get_prim_at_path("/World/envs/env_0/kyon_no_wheels/lower_leg_4/collisions/mesh_1")
+        physics_material=UsdPhysics.MaterialAPI.Apply(prim)
+        physics_material.CreateDynamicFrictionAttr(0)
+        physics_material.CreateStaticFrictionAttr(0)
+        physics_material.CreateRestitutionAttr(1.0)
 
         
         # filter collisions between default ground plane and custom terrains
@@ -875,12 +886,13 @@ class IsaacSimEnv(LRhcEnvBase):
             
             self._root_p[robot_name][env_indxs, :] = pose[0] 
 
-            going_to_fly=self._root_p[robot_name][env_indxs, 0:2]>self._env_opts["terrain_border"]-0.1
+            going_to_fly=self._root_p[robot_name][env_indxs, 0:2]>(self._env_opts["terrain_border"]-0.1)
             if going_to_fly.any():
-                exception = f"One of the clones of {robot_name} is about to go out of the terrain!!"
+                flying=going_to_fly.sum().item()
+                warn = f"N. {flying} robots ({robot_name}) are about to go out of the terrain!!"
                 Journal.log(self.__class__.__name__,
                     "_get_root_state",
-                    exception,
+                    warn,
                     LogType.WARN,
                     throw_when_excep = True)
             self._root_q[robot_name][env_indxs, :] = pose[1] # root orientation
@@ -930,12 +942,13 @@ class IsaacSimEnv(LRhcEnvBase):
             self._root_p[robot_name][:, :] = pose[0]  
             self._root_q[robot_name][:, :] = pose[1] # root orientation
 
-            going_to_fly=self._root_p[robot_name][:, 0:2]>self._env_opts["terrain_border"]-0.1
+            going_to_fly=self._root_p[robot_name][:, 0:2]>(self._env_opts["terrain_border"]-0.1)
             if going_to_fly.any():
-                exception = f"One of the clones of {robot_name} is about to go out of the terrain!!"
+                flying=going_to_fly.sum().item()
+                warn = f"N. {flying} robots ({robot_name}) are about to go out of the terrain!!"
                 Journal.log(self.__class__.__name__,
                     "_get_root_state",
-                    exception,
+                    warn,
                     LogType.WARN,
                     throw_when_excep = True)
                 
@@ -1095,9 +1108,12 @@ class IsaacSimEnv(LRhcEnvBase):
     def _print_envs_info(self):
 
         ground_info = f"[Ground info]" + "\n" + \
-            "static friction coeff.: " + str(self._terrain_props.CreateStaticFrictionAttr().Get()) + "\n" + \
-            "dynamics friction coeff.: " + str(self._terrain_props.GetDynamicFrictionAttr().Get()) + "\n" + \
-            "restitution coeff.: " + str(self._terrain_props.CreateRestitutionAttr().Get()) + "\n"
+            "static friction coeff.: " + str(self._terrain_material.GetStaticFrictionAttr().Get()) + "\n" + \
+            "dynamics friction coeff.: " + str(self._terrain_material.GetDynamicFrictionAttr().Get()) + "\n" + \
+            "restitution coeff.: " + str(self._terrain_material.GetRestitutionAttr().Get()) + "\n" +\
+            "friction comb. mode: " + str(self._terrain_physix_material.GetFrictionCombineModeAttr().Get()) + "\n" + \
+            "damping comb. mode: " + str(self._terrain_physix_material.GetDampingCombineModeAttr().Get()) + "\n" + \
+            "restitution comb. mode: " + str(self._terrain_physix_material.GetRestitutionCombineModeAttr().Get()) + "\n"
         
         Journal.log(self.__class__.__name__,
             "_print_envs_info",
