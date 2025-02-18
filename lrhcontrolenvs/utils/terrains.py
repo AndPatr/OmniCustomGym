@@ -242,6 +242,77 @@ class RlTerrains():
                     dynamic_friction=static_friction,
                     restitution=restitution)
     
+    def create_random_patched_terrain(self, 
+                terrain_size=40, 
+                min_height=-0.2, 
+                max_height=0.2, 
+                step=0.2, 
+                downsampled_scale=0.5, 
+                position=np.array([0.0, 0.0, 0.0]), 
+                dynamic_friction=0.5, 
+                static_friction=0.5, 
+                restitution=0.1,
+                patch_ratio=0.3,
+                patch_size=10):
+
+        # Terrain dimensions
+        num_terrains = 1
+        terrain_width = terrain_size
+        terrain_length = terrain_size
+        horizontal_scale = 0.25  # [m]
+        vertical_scale = 0.005  # [m]
+
+        num_rows = int(terrain_width / horizontal_scale)
+        num_cols = int(terrain_length / horizontal_scale)
+
+        heightfield = np.zeros((num_terrains * num_rows, num_cols), dtype=np.int16)
+
+        def new_sub_terrain(): 
+            return SubTerrain(width=num_rows, 
+                              length=num_cols,
+                              vertical_scale=vertical_scale, 
+                              horizontal_scale=horizontal_scale)
+
+        # Generate base terrain
+        terrain = random_uniform_terrain(new_sub_terrain(), 
+                                         min_height=min_height, max_height=max_height, 
+                                         step=step, 
+                                         downsampled_scale=downsampled_scale)
+        heightfield[0:num_rows, :] = terrain.height_field_raw
+
+        # Apply flat patches
+        num_patches_x = terrain_width // patch_size
+        num_patches_y = terrain_length // patch_size
+
+        for i in range(int(num_patches_x * num_patches_y * patch_ratio)):
+            patch_x = np.random.randint(0, num_patches_x) * (patch_size / horizontal_scale)
+            patch_y = np.random.randint(0, num_patches_y) * (patch_size / horizontal_scale)
+            patch_x = int(patch_x)
+            patch_y = int(patch_y)
+
+            patch_height = np.random.uniform(min_height, max_height)
+            heightfield[patch_x:patch_x + int(patch_size / horizontal_scale),
+                        patch_y:patch_y + int(patch_size / horizontal_scale)] = patch_height / vertical_scale
+
+        # Convert to mesh
+        vertices, triangles = convert_heightfield_to_trimesh(heightfield, 
+                                                             horizontal_scale=horizontal_scale,
+                                                             vertical_scale=vertical_scale, 
+                                                             slope_threshold=1.5)
+
+        position = np.array([-terrain_width / 2.0, terrain_length / 2.0, 0]) + position
+        orientation = np.array([0.70711, 0.0, 0.0, -0.70711])
+
+        return add_terrain_to_stage(stage=self._stage, 
+                                    vertices=vertices, 
+                                    triangles=triangles,
+                                    position=position, 
+                                    orientation=orientation,
+                                    prim_path=self._prim_path,
+                                    static_friction=dynamic_friction,
+                                    dynamic_friction=static_friction,
+                                    restitution=restitution)
+    
     def get_obstacles_terrain(self, 
                     terrain_size = 40.0, 
                     num_obs = 50, 

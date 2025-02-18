@@ -479,6 +479,21 @@ class IsaacSimEnv(LRhcEnvBase):
                     static_friction=self._env_opts["static_friction"], 
                     dynamic_friction=self._env_opts["dynamic_friction"], 
                     restitution=self._env_opts["restitution"])
+            elif self._env_opts["ground_type"]=="random_patches":
+                random_prim_path=self._env_opts["ground_plane_prim_path"]+"_random_unif_patches"
+                self._ground_plane_prim_paths.append(random_prim_path)
+                self.terrain_utils = RlTerrains(get_current_stage(), prim_path=random_prim_path)
+                self._ground_plane=self.terrain_utils.create_random_patched_terrain(terrain_size=self._env_opts["ground_size"], 
+                    min_height=-0.05,
+                    max_height=0.001,
+                    step=0.1,
+                    position=np.array([0.0, 0.0,0.0]), 
+                    static_friction=self._env_opts["static_friction"], 
+                    dynamic_friction=self._env_opts["dynamic_friction"], 
+                    restitution=self._env_opts["restitution"],
+                    patch_ratio=0.8, # 0.3% of area is noisy, rest flat
+                    patch_size=30
+                    )
             else:
                 ground_type=self._env_opts["ground_type"]
                 Journal.log(self.__class__.__name__,
