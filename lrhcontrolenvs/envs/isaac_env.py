@@ -469,15 +469,17 @@ class IsaacSimEnv(LRhcEnvBase):
         self._ground_plane_prim_paths=[]
         self._ground_plane=None
         if not self._env_opts["use_flat_ground"]:
-            
+            min_height=-0.02
+            max_height=0.02
+            step=max_height-min_height
             if self._env_opts["ground_type"]=="random":
                 random_prim_path=self._env_opts["ground_plane_prim_path"]+"_random_unif"
                 self._ground_plane_prim_paths.append(random_prim_path)
                 self.terrain_utils = RlTerrains(get_current_stage(), prim_path=random_prim_path)
                 self._ground_plane=self.terrain_utils.create_random_terrain(terrain_size=self._env_opts["ground_size"], 
-                    min_height=-0.05,
-                    max_height=0.001,
-                    step=0.1,
+                    min_height=min_height,
+                    max_height=max_height,
+                    step=step,
                     position=np.array([0.0, 0.0,0.0]), 
                     static_friction=self._env_opts["static_friction"], 
                     dynamic_friction=self._env_opts["dynamic_friction"], 
@@ -487,9 +489,9 @@ class IsaacSimEnv(LRhcEnvBase):
                 self._ground_plane_prim_paths.append(random_prim_path)
                 self.terrain_utils = RlTerrains(get_current_stage(), prim_path=random_prim_path)
                 self._ground_plane=self.terrain_utils.create_random_patched_terrain(terrain_size=self._env_opts["ground_size"], 
-                    min_height=-0.05,
-                    max_height=0.001,
-                    step=0.1,
+                    min_height=min_height,
+                    max_height=max_height,
+                    step=step,
                     position=np.array([0.0, 0.0,0.0]), 
                     static_friction=self._env_opts["static_friction"], 
                     dynamic_friction=self._env_opts["dynamic_friction"], 
@@ -901,7 +903,7 @@ class IsaacSimEnv(LRhcEnvBase):
                 Journal.log(self.__class__.__name__,
                     "_get_root_state",
                     warn,
-                    LogType.WARN,
+                    LogType.EXCEP,
                     throw_when_excep = True)
             self._root_q[robot_name][env_indxs, :] = pose[1] # root orientation
             if not numerical_diff:
@@ -957,7 +959,7 @@ class IsaacSimEnv(LRhcEnvBase):
                 Journal.log(self.__class__.__name__,
                     "_get_root_state",
                     warn,
-                    LogType.WARN,
+                    LogType.EXCEP,
                     throw_when_excep = True)
                 
             if not numerical_diff:
