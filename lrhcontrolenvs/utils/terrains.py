@@ -187,60 +187,116 @@ class RlTerrains():
                     dynamic_friction=static_friction,
                     restitution=restitution)
 
-    def create_random_terrain(self, 
-                terrain_size = 40, 
-                min_height = -0.2, 
-                max_height = 0.2, 
-                step = 0.2, 
-                downsampled_scale=0.5, 
-                position = np.array([0.0, 0.0, 0.0]), 
-                dynamic_friction=0.5, 
-                static_friction=0.5, 
-                restitution=0.1):
+    def create_random_patched_terrain(self, 
+                    terrain_size=40, 
+                    min_height=-0.2, 
+                    max_height=0.2, 
+                    step=0.2, 
+                    downsampled_scale=0.5, 
+                    position=np.array([0.0, 0.0, 0.0]), 
+                    dynamic_friction=0.5, 
+                    static_friction=0.5, 
+                    restitution=0.1,
+                    patch_ratio=0.3,
+                    patch_size=10,
+                    wall_height=2.0):  # Default wall height
 
-        # creates a terrain
-        num_terrains = 1
-        terrain_width = terrain_size
-        terrain_length = terrain_size
+        # Terrain dimensions
         horizontal_scale = 0.25  # [m]
         vertical_scale = 0.005  # [m]
+        
+        num_rows = int(terrain_size / horizontal_scale)
+        num_cols = int(terrain_size / horizontal_scale)
 
-        num_rows = int(terrain_width/horizontal_scale)
-        num_cols = int(terrain_length/horizontal_scale)
-
-        heightfield = np.zeros((num_terrains * num_rows, 
-                                num_cols), dtype=np.int16)
+        heightfield = np.zeros((num_rows, num_cols), dtype=np.int16)
 
         def new_sub_terrain(): 
-
             return SubTerrain(width=num_rows, 
-                        length=num_cols,
-                        vertical_scale=vertical_scale, 
-                        horizontal_scale=horizontal_scale)
+                            length=num_cols,
+                            vertical_scale=vertical_scale, 
+                            horizontal_scale=horizontal_scale)
 
-        heightfield[0:num_rows, :] = random_uniform_terrain(new_sub_terrain(), 
-                                            min_height=min_height, max_height=max_height, 
-                                            step=step, 
-                                            downsampled_scale=downsampled_scale).height_field_raw
-        
+        # Generate base terrain
+        terrain = random_uniform_terrain(new_sub_terrain(), 
+                                        min_height=min_height, max_height=max_height, 
+                                        step=step, 
+                                        downsampled_scale=downsampled_scale)
+        heightfield[:, :] = terrain.height_field_raw
+
+        # Apply flat patches
+        num_patches_x = terrain_size // patch_size
+        num_patches_y = terrain_size // patch_size
+
+        for i in range(int(num_patches_x * num_patches_y * patch_ratio)):
+            patch_x = np.random.randint(0, num_patches_x) * (patch_size / horizontal_scale)
+            patch_y = np.random.randint(0, num_patches_y) * (patch_size / horizontal_scale)
+            patch_x = int(patch_x)
+            patch_y = int(patch_y)
+
+            patch_height = np.random.uniform(min_height, max_height)
+            heightfield[patch_x:patch_x + int(patch_size / horizontal_scale),
+                        patch_y:patch_y + int(patch_size / horizontal_scale)] = patch_height / vertical_scale
+
+        # Convert to mesh
         vertices, triangles = convert_heightfield_to_trimesh(heightfield, 
-                                    horizontal_scale=horizontal_scale,
-                                    vertical_scale=vertical_scale, 
-                                    slope_threshold=1.5)
+                                                            horizontal_scale=horizontal_scale,
+                                                            vertical_scale=vertical_scale, 
+                                                            slope_threshold=1.5)
 
-        position = np.array([-terrain_width/2.0, terrain_length/2.0, 0]) + position
+        # Convert to list for modification
+        vertices = list(vertices)
+        triangles = list(triangles)
 
+        # Add vertical walls around the edges
+        wall_vertices = []
+        wall_triangles = []
+
+        # Function to add a wall along a row of vertices
+        def add_wall(start_idx, end_idx, step):
+            wall_start_idx = len(vertices) + len(wall_vertices)  # Start index for walls
+
+            for i in range(start_idx, end_idx, step):
+                base_vertex = np.array(vertices[i])  # Copy base vertex
+                wall_top = base_vertex + np.array([0, 0, wall_height])  # Raise Z-coordinate
+
+                wall_vertices.append(base_vertex)  # Bottom vertex
+                wall_vertices.append(wall_top)     # Top vertex
+
+                if len(wall_vertices) > 2:
+                    prev_bottom_idx = wall_start_idx + len(wall_vertices) - 4
+                    prev_top_idx = prev_bottom_idx + 1
+                    curr_bottom_idx = prev_bottom_idx + 2
+                    curr_top_idx = prev_top_idx + 2
+
+                    # Create two triangles per wall segment
+                    wall_triangles.append([prev_bottom_idx, curr_bottom_idx, prev_top_idx])
+                    wall_triangles.append([prev_top_idx, curr_bottom_idx, curr_top_idx])
+
+        # Left and Right walls
+        add_wall(0, num_rows * num_cols, num_cols)  # Left
+        add_wall(num_cols - 1, num_rows * num_cols, num_cols)  # Right
+
+        # Bottom and Top walls
+        add_wall(0, num_cols, 1)  # Bottom
+        add_wall(num_rows * num_cols - num_cols, num_rows * num_cols, 1)  # Top
+
+        # Convert lists back to NumPy arrays
+        vertices = np.vstack([vertices, np.array(wall_vertices)])
+        triangles.extend(wall_triangles)
+
+        # Adjust position
+        position = np.array([-terrain_size / 2.0, terrain_size / 2.0, 0]) + position
         orientation = np.array([0.70711, 0.0, 0.0, -0.70711])
 
         return add_terrain_to_stage(stage=self._stage, 
-                    vertices=vertices, 
-                    triangles=triangles,
-                    position=position, 
-                    orientation=orientation,
-                    prim_path=self._prim_path,
-                    static_friction=dynamic_friction,
-                    dynamic_friction=static_friction,
-                    restitution=restitution)
+                                    vertices=np.array(vertices), 
+                                    triangles=np.array(triangles),
+                                    position=position, 
+                                    orientation=orientation,
+                                    prim_path=self._prim_path,
+                                    static_friction=dynamic_friction,
+                                    dynamic_friction=static_friction,
+                                    restitution=restitution)
     
     def create_random_patched_terrain(self, 
                 terrain_size=40, 
