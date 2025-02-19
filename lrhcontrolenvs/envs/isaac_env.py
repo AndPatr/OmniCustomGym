@@ -260,6 +260,7 @@ class IsaacSimEnv(LRhcEnvBase):
         isaac_opts["ground_type"]="random"
         isaac_opts["ground_size"]=400
         isaac_opts["terrain_border"]=isaac_opts["ground_size"]/2
+        isaac_opts["dh_ground"]=0.03
         isaac_opts["contact_prims"] = []
         isaac_opts["sensor_radii"] = 0.1
         isaac_opts["contact_offsets"] = {}
@@ -469,8 +470,8 @@ class IsaacSimEnv(LRhcEnvBase):
         self._ground_plane_prim_paths=[]
         self._ground_plane=None
         if not self._env_opts["use_flat_ground"]:
-            min_height=-0.03
-            max_height=0.03
+            min_height=-self._env_opts["dh_ground"]
+            max_height=self._env_opts["dh_ground"]
             step=max_height-min_height
             if self._env_opts["ground_type"]=="random":
                 random_prim_path=self._env_opts["ground_plane_prim_path"]+"_random_unif"
