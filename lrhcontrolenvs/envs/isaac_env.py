@@ -904,7 +904,7 @@ class IsaacSimEnv(LRhcEnvBase):
                 Journal.log(self.__class__.__name__,
                     "_get_root_state",
                     warn,
-                    LogType.EXCEP,
+                    LogType.WARN,
                     throw_when_excep = True)
             self._root_q[robot_name][env_indxs, :] = pose[1] # root orientation
             if not numerical_diff:
@@ -960,7 +960,7 @@ class IsaacSimEnv(LRhcEnvBase):
                 Journal.log(self.__class__.__name__,
                     "_get_root_state",
                     warn,
-                    LogType.EXCEP,
+                    LogType.WARN,
                     throw_when_excep = True)
                 
             if not numerical_diff:
