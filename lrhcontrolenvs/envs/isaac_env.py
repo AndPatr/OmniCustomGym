@@ -469,8 +469,8 @@ class IsaacSimEnv(LRhcEnvBase):
         self._ground_plane_prim_paths=[]
         self._ground_plane=None
         if not self._env_opts["use_flat_ground"]:
-            min_height=-0.06
-            max_height=0.06
+            min_height=-0.03
+            max_height=0.03
             step=max_height-min_height
             if self._env_opts["ground_type"]=="random":
                 random_prim_path=self._env_opts["ground_plane_prim_path"]+"_random_unif"
@@ -496,7 +496,7 @@ class IsaacSimEnv(LRhcEnvBase):
                     static_friction=self._env_opts["static_friction"], 
                     dynamic_friction=self._env_opts["dynamic_friction"], 
                     restitution=self._env_opts["restitution"],
-                    patch_ratio=0.8, # 0.3% of area is noisy, rest flat
+                    patch_ratio=0.8,
                     patch_size=10
                     )
             else:
